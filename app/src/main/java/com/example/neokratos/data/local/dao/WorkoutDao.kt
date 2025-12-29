@@ -1,9 +1,10 @@
 package com.example.neokratos.data.local.dao
 
-import com.example.neokratos.data.local.entity.WorkoutEntity
 import androidx.room.Dao
 import androidx.room.Insert
-import com.example.neokratos.data.local.entity.SetEntity
+import androidx.room.Query
+import com.example.neokratos.data.local.entity.WorkoutEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WorkoutDao {
@@ -11,6 +12,6 @@ interface WorkoutDao {
     @Insert
     suspend fun insertWorkout(workout: WorkoutEntity): Long
 
-    @Insert
-    suspend fun insertSet(set: SetEntity)
+    @Query("SELECT * FROM workouts ORDER BY startTime DESC")
+    fun getAllWorkouts(): Flow<List<WorkoutEntity>>
 }

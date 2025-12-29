@@ -5,12 +5,11 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.neokratos.data.local.dao.WorkoutDao
-import com.example.neokratos.data.local.entity.SetEntity
 import com.example.neokratos.data.local.entity.WorkoutEntity
 
 @Database(
-    entities = [WorkoutEntity::class, SetEntity::class],
-    version = 1,
+    entities = [WorkoutEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class GymDatabase : RoomDatabase() {
@@ -23,13 +22,11 @@ abstract class GymDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): GymDatabase {
             return INSTANCE ?: synchronized(this) {
-                Room.databaseBuilder(
+                INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     GymDatabase::class.java,
                     "neokratos_db"
-                ).build().also {
-                    INSTANCE = it
-                }
+                ).build().also { INSTANCE = it }
             }
         }
     }

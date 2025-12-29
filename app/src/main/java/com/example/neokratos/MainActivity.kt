@@ -3,20 +3,15 @@ package com.example.neokratos
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.neokratos.data.local.GymDatabase
 import com.example.neokratos.data.repository.WorkoutRepository
-import com.example.neokratos.ui.screen.workout.WorkoutScreen
-import com.example.neokratos.ui.screen.workout.WorkoutViewModel
-import com.example.neokratos.ui.screen.workout.WorkoutViewModelFactory
+import com.example.neokratos.ui.navigation.NavRoutes
+import com.example.neokratos.ui.screen.history.*
+import com.example.neokratos.ui.screen.workout.*
 import com.example.neokratos.ui.theme.NeoKratosTheme
 
 class MainActivity : ComponentActivity() {
@@ -26,32 +21,40 @@ class MainActivity : ComponentActivity() {
 
         val database = GymDatabase.getInstance(this)
         val repository = WorkoutRepository(database.workoutDao())
-        val viewModelFactory = WorkoutViewModelFactory(repository)
 
         setContent {
             NeoKratosTheme {
-                val viewModel: WorkoutViewModel = viewModel(
-                    factory = viewModelFactory
-                )
 
-                WorkoutScreen(viewModel = viewModel)
+                val navController = rememberNavController()
+
+                NavHost(
+                    navController = navController,
+                    startDestination = NavRoutes.Workout.route
+                ) {
+
+                    composable(NavRoutes.Workout.route) {
+                        val vm: WorkoutViewModel = viewModel(
+                            factory = WorkoutViewModelFactory(repository)
+                        )
+                        WorkoutScreen(
+                            viewModel = vm,
+                            onNavigateHistory = {
+                                navController.navigate(NavRoutes.History.route)
+                            }
+                        )
+                    }
+
+                    composable(NavRoutes.History.route) {
+                        val vm: HistoryViewModel = viewModel(
+                            factory = HistoryViewModelFactory(repository)
+                        )
+                        HistoryScreen(
+                            viewModel = vm,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    NeoKratosTheme {
-        Greeting("Android")
     }
 }
