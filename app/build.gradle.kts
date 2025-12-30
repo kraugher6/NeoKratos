@@ -63,4 +63,5 @@ dependencies {
     kapt(libs.room.compiler)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation("androidx.compose.material:material-icons-extended")
 }

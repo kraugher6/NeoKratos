@@ -9,9 +9,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.neokratos.data.local.GymDatabase
 import com.example.neokratos.data.repository.WorkoutRepository
+import com.example.neokratos.data.repository.WorkoutTemplateRepository
 import com.example.neokratos.ui.navigation.NavRoutes
 import com.example.neokratos.ui.screen.history.*
 import com.example.neokratos.ui.screen.workout.*
+import com.example.neokratos.ui.screen.workouttemplate.WorkoutTemplateScreen
+import com.example.neokratos.ui.screen.workouttemplate.WorkoutTemplateViewModel
+import com.example.neokratos.ui.screen.workouttemplate.WorkoutTemplateViewModelFactory
 import com.example.neokratos.ui.theme.NeoKratosTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,10 +24,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val database = GymDatabase.getInstance(this)
-        val repository = WorkoutRepository(database.workoutDao())
+        val workoutRepository = WorkoutRepository(database.workoutDao())
+        val workoutTemplateRepository = WorkoutTemplateRepository(database.workoutTemplateDao())
 
         setContent {
-            NeoKratosTheme {
+            NeoKratosTheme(dynamicColor = false) {
 
                 val navController = rememberNavController()
 
@@ -34,20 +39,20 @@ class MainActivity : ComponentActivity() {
 
                     composable(NavRoutes.Workout.route) {
                         val vm: WorkoutViewModel = viewModel(
-                            factory = WorkoutViewModelFactory(repository)
+                            factory = WorkoutViewModelFactory(workoutRepository)
                         )
+
                         WorkoutScreen(
                             viewModel = vm,
-                            onNavigateHistory = {
-                                navController.navigate(NavRoutes.History.route)
-                            }
+                            onNavigateHistory = { navController.navigate(NavRoutes.History.route) }
                         )
                     }
 
                     composable(NavRoutes.History.route) {
                         val vm: HistoryViewModel = viewModel(
-                            factory = HistoryViewModelFactory(repository)
+                            factory = HistoryViewModelFactory(workoutRepository)
                         )
+
                         HistoryScreen(
                             viewModel = vm,
                             onBack = { navController.popBackStack() }

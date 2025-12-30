@@ -4,3 +4,4 @@ sealed class NavRoutes(val route: String) {
     object Workout : NavRoutes("workout")
     object History : NavRoutes("history")
 }
+
