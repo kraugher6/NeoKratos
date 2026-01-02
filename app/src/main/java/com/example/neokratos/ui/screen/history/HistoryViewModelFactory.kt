@@ -2,10 +2,10 @@ package com.example.neokratos.ui.screen.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.example.neokratos.data.repository.WorkoutRepository
+import com.example.neokratos.data.repository.WorkoutSessionRepository
 
 class HistoryViewModelFactory(
-    private val repository: WorkoutRepository
+    private val repository: WorkoutSessionRepository
 ) : ViewModelProvider.Factory {
 
     override fun <T : ViewModel> create(modelClass: Class<T>): T {

@@ -1,31 +1,35 @@
 package com.example.neokratos.ui.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class BottomNavItem(
-    val route: String,
+    val id: String,
     val label: String,
     val icon: ImageVector
 ) {
     object Templates : BottomNavItem(
-        NavRoutes.Workout.route,
-        "Templates",
-        Icons.Default.List
+        id = "templates",
+        label = "Templates",
+        icon = Icons.AutoMirrored.Filled.List
     )
 
     object Manage : BottomNavItem(
-        NavRoutes.Workout.route,
-        "Manage",
-        Icons.Default.Edit
+        id = "manage",
+        label = "Manage",
+        icon = Icons.Default.Edit
     )
 
     object History : BottomNavItem(
-        NavRoutes.History.route,
-        "History",
-        Icons.Default.History
+        id = "history",
+        label = "History",
+        icon = Icons.Default.History
     )
+
+    companion object {
+        val items = listOf(Templates, Manage, History)
+    }
 }

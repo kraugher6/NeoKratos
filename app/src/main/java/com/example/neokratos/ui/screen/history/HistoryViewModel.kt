@@ -2,12 +2,12 @@ package com.example.neokratos.ui.screen.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.neokratos.data.repository.WorkoutRepository
+import com.example.neokratos.data.repository.WorkoutSessionRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
 class HistoryViewModel(
-    private val repository: WorkoutRepository
+    private val repository: WorkoutSessionRepository
 ) : ViewModel() {
 
     val workouts = repository.allWorkouts

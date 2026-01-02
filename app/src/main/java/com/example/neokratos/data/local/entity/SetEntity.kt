@@ -9,7 +9,7 @@ import androidx.room.Index
     tableName = "sets",
     foreignKeys = [
         ForeignKey(
-            entity = WorkoutEntity::class,
+            entity = WorkoutSessionEntity::class,
             parentColumns = ["id"],
             childColumns = ["workoutId"],
             onDelete = ForeignKey.CASCADE

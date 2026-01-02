@@ -9,9 +9,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface WorkoutTemplateDao {
 
-    @Insert
-    suspend fun insert(template: WorkoutTemplateEntity): Long
-
-    @Query("SELECT * FROM workout_templates")
+    @Query("SELECT * FROM workout_templates ORDER BY name")
     fun getAllTemplates(): Flow<List<WorkoutTemplateEntity>>
+
+    @Insert
+    suspend fun insert(template: WorkoutTemplateEntity)
 }
