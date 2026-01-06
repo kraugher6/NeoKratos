@@ -4,28 +4,53 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.example.neokratos.data.local.dao.ExerciseDao
+import com.example.neokratos.data.local.dao.SessionExerciseDao
+import com.example.neokratos.data.local.dao.SetLogDao
+import com.example.neokratos.data.local.dao.TemplateExerciseDao
 import com.example.neokratos.data.local.dao.WorkoutSessionDao
 import com.example.neokratos.data.local.dao.WorkoutTemplateDao
 import com.example.neokratos.data.local.entity.ExerciseEntity
+import com.example.neokratos.data.local.entity.SessionExerciseEntity
+import com.example.neokratos.data.local.entity.SetLogEntity
+import com.example.neokratos.data.local.entity.TemplateExerciseEntity
 import com.example.neokratos.data.local.entity.WorkoutSessionEntity
 import com.example.neokratos.data.local.entity.WorkoutTemplateEntity
 
+/**
+ * Database principale dell'app.
+ *
+ * IMPORTANTE: Quando aggiungi/modifichi entities, devi:
+ * 1. Incrementare il numero di version
+ * 2. Cancellare app e reinstallare (per ora, migrations dopo)
+ */
 @Database(
     entities = [
+        ExerciseEntity::class,
+        TemplateExerciseEntity::class,
         WorkoutTemplateEntity::class,
-        WorkoutSessionEntity::class
+        WorkoutSessionEntity::class,
+        SessionExerciseEntity::class,   // ADDED: exercises in session
+        SetLogEntity::class             // ADDED: set tracking
     ],
-    version = 4,
+    version = 7, // INCREMENTED: 6 → 7
     exportSchema = false
 )
+@TypeConverters(Converters::class) // AGGIUNTO: abilita i converters per Enum e List
 abstract class GymDatabase : RoomDatabase() {
 
+    // DAOs
+    abstract fun exerciseDao(): ExerciseDao
+    abstract fun templateExerciseDao(): TemplateExerciseDao
     abstract fun workoutTemplateDao(): WorkoutTemplateDao
     abstract fun workoutSessionDao(): WorkoutSessionDao
+    abstract fun sessionExerciseDao(): SessionExerciseDao  // ADDED
+    abstract fun setLogDao(): SetLogDao                    // ADDED
 
     companion object {
-        @Volatile private var INSTANCE: GymDatabase? = null
+        @Volatile
+        private var INSTANCE: GymDatabase? = null
 
         fun getInstance(context: Context): GymDatabase =
             INSTANCE ?: synchronized(this) {
@@ -33,8 +58,10 @@ abstract class GymDatabase : RoomDatabase() {
                     context.applicationContext,
                     GymDatabase::class.java,
                     "neokratos_db"
-                ).build().also { INSTANCE = it }
+                )
+                    .fallbackToDestructiveMigration() // TEMPORANEO: ricrea DB se cambi schema
+                    .build()
+                    .also { INSTANCE = it }
             }
     }
 }
-

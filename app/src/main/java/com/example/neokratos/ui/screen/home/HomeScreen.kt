@@ -1,37 +1,43 @@
 package com.example.neokratos.ui.screen.home
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.compose.*
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.neokratos.ui.navigation.BottomNavItem
 
+/**
+ * Main home screen with bottom navigation.
+ *
+ * Contains:
+ * - Active Workout screen
+ * - Templates list
+ * - Manage templates
+ * - History
+ */
 @Composable
 fun HomeScreen(
+    workoutScreen: @Composable () -> Unit,
     templatesScreen: @Composable () -> Unit,
     manageTemplatesScreen: @Composable () -> Unit,
     historyScreen: @Composable () -> Unit
 ) {
     val navController = rememberNavController()
-
-    // Lista degli item della BottomNav
     val items = BottomNavItem.items
 
     Scaffold(
         bottomBar = {
             NavigationBar {
                 items.forEach { item ->
-                    // Otteniamo la destinazione corrente
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
 
-                    // Determiniamo se l'item è selezionato
-                    val isSelected = currentDestination?.hierarchy?.any {
-                        it.route == item.id
-                    } == true
+                    val isSelected = currentDestination?.route == item.id
 
                     NavigationBarItem(
                         icon = { Icon(item.icon, contentDescription = item.label) },
@@ -39,10 +45,13 @@ fun HomeScreen(
                         selected = isSelected,
                         onClick = {
                             navController.navigate(item.id) {
-                                popUpTo(navController.graph.findStartDestination().id) {
+                                // Pop up to start destination to avoid building large back stack
+                                popUpTo(navController.graph.startDestinationId) {
                                     saveState = true
                                 }
+                                // Avoid multiple copies of same destination
                                 launchSingleTop = true
+                                // Restore state when reselecting previously selected item
                                 restoreState = true
                             }
                         }
@@ -51,12 +60,12 @@ fun HomeScreen(
             }
         }
     ) { innerPadding ->
-        // NavHost per gestire i contenuti delle schermate
         NavHost(
             navController = navController,
-            startDestination = BottomNavItem.Templates.id,
+            startDestination = BottomNavItem.Workout.id,
             modifier = Modifier.padding(innerPadding)
         ) {
+            composable(BottomNavItem.Workout.id) { workoutScreen() }
             composable(BottomNavItem.Templates.id) { templatesScreen() }
             composable(BottomNavItem.Manage.id) { manageTemplatesScreen() }
             composable(BottomNavItem.History.id) { historyScreen() }
