@@ -24,8 +24,8 @@ import com.example.neokratos.ui.navigation.BottomNavItem
 fun HomeScreen(
     workoutScreen: @Composable () -> Unit,
     templatesScreen: @Composable () -> Unit,
-    manageTemplatesScreen: @Composable () -> Unit,
-    historyScreen: @Composable () -> Unit
+    historyScreen: @Composable () -> Unit,
+    exercisesScreen: @Composable () -> Unit
 ) {
     val navController = rememberNavController()
     val items = BottomNavItem.items
@@ -45,13 +45,10 @@ fun HomeScreen(
                         selected = isSelected,
                         onClick = {
                             navController.navigate(item.id) {
-                                // Pop up to start destination to avoid building large back stack
                                 popUpTo(navController.graph.startDestinationId) {
                                     saveState = true
                                 }
-                                // Avoid multiple copies of same destination
                                 launchSingleTop = true
-                                // Restore state when reselecting previously selected item
                                 restoreState = true
                             }
                         }
@@ -67,8 +64,8 @@ fun HomeScreen(
         ) {
             composable(BottomNavItem.Workout.id) { workoutScreen() }
             composable(BottomNavItem.Templates.id) { templatesScreen() }
-            composable(BottomNavItem.Manage.id) { manageTemplatesScreen() }
             composable(BottomNavItem.History.id) { historyScreen() }
+            composable(BottomNavItem.Exercises.id) { exercisesScreen() }
         }
     }
 }

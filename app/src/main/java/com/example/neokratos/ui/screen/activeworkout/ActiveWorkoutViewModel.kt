@@ -78,10 +78,13 @@ class ActiveWorkoutViewModel(
             try {
                 _uiState.value = WorkoutUiState.Loading
 
-                val sessionId = workoutSessionRepository.startWorkout(
-                    templateId = templateId,
-                    name = name
-                )
+                val sessionId = if (templateId != null) {
+                    // Start from template (copies exercises)
+                    workoutSessionRepository.startWorkoutFromTemplate(templateId)
+                } else {
+                    // Start empty workout
+                    workoutSessionRepository.startWorkout(name = name)
+                }
 
                 _uiState.value = WorkoutUiState.WorkoutActive(sessionId)
 

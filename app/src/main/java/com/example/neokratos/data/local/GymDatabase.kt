@@ -34,7 +34,7 @@ import com.example.neokratos.data.local.entity.WorkoutTemplateEntity
         SessionExerciseEntity::class,   // ADDED: exercises in session
         SetLogEntity::class             // ADDED: set tracking
     ],
-    version = 7, // INCREMENTED: 6 → 7
+    version = 9, // INCREMENTED: 7 → 8 (fix secondaryMuscleGroups nullable)
     exportSchema = false
 )
 @TypeConverters(Converters::class) // AGGIUNTO: abilita i converters per Enum e List
@@ -45,8 +45,8 @@ abstract class GymDatabase : RoomDatabase() {
     abstract fun templateExerciseDao(): TemplateExerciseDao
     abstract fun workoutTemplateDao(): WorkoutTemplateDao
     abstract fun workoutSessionDao(): WorkoutSessionDao
-    abstract fun sessionExerciseDao(): SessionExerciseDao  // ADDED
-    abstract fun setLogDao(): SetLogDao                    // ADDED
+    abstract fun sessionExerciseDao(): SessionExerciseDao
+    abstract fun setLogDao(): SetLogDao
 
     companion object {
         @Volatile

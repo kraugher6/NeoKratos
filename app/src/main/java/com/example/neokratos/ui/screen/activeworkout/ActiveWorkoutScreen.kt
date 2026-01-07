@@ -58,26 +58,27 @@ fun ActiveWorkoutScreen(
             )
         },
         floatingActionButton = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Complete workout button
-                if (activeWorkout != null) {
+            // Only show FABs if workout is active
+            if (activeWorkout != null) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Complete workout button
                     FloatingActionButton(
                         onClick = { showCompleteDialog = true },
                         containerColor = MaterialTheme.colorScheme.primary
                     ) {
                         Icon(Icons.Default.Check, contentDescription = "Complete workout")
                     }
-                }
 
-                // Add exercise button
-                ExtendedFloatingActionButton(
-                    onClick = { showExercisePicker = true },
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Add Exercise") }
-                )
+                    // Add exercise button
+                    ExtendedFloatingActionButton(
+                        onClick = { showExercisePicker = true },
+                        icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                        text = { Text("Add Exercise") }
+                    )
+                }
             }
         }
     ) { padding ->

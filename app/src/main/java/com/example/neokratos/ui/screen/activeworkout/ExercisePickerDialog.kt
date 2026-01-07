@@ -291,7 +291,7 @@ private fun ExerciseListItem(
             }
 
             // Secondary muscle groups
-            if (exercise.secondaryMuscleGroups.isNotEmpty()) {
+            if (exercise.secondaryMuscleGroups?.isNotEmpty() == true) {
                 Text(
                     text = "Secondary: ${exercise.secondaryMuscleGroups.joinToString(", ") {
                         it.name.lowercase().replace("_", " ")

@@ -27,19 +27,19 @@ sealed class BottomNavItem(
         icon = Icons.AutoMirrored.Filled.List
     )
 
-    object Manage : BottomNavItem(
-        id = "manage",
-        label = "Manage",
-        icon = Icons.Default.Edit
-    )
-
     object History : BottomNavItem(
         id = "history",
         label = "History",
         icon = Icons.Default.History
     )
 
+    object Exercises : BottomNavItem(
+        id = "exercises",
+        label = "Exercises",
+        icon = Icons.Default.Edit
+    )
+
     companion object {
-        val items = listOf(Workout, Templates, Manage, History)
+        val items = listOf(Workout, Templates, History, Exercises)
     }
 }

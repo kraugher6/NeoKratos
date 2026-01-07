@@ -23,7 +23,8 @@ import kotlinx.coroutines.flow.Flow
 class WorkoutSessionRepository(
     private val workoutSessionDao: WorkoutSessionDao,
     private val sessionExerciseDao: SessionExerciseDao,
-    private val setLogDao: SetLogDao
+    private val setLogDao: SetLogDao,
+    private val templateExerciseDao: com.example.neokratos.data.local.dao.TemplateExerciseDao? = null
 ) {
 
     // ===== EXPOSED FLOWS =====
@@ -420,8 +421,22 @@ class WorkoutSessionRepository(
      * @return The ID of the created session
      */
     suspend fun startWorkoutFromTemplate(templateId: Long): Long {
-        // This will be implemented when we integrate templates
-        // For now, just start empty workout
-        return startWorkout(templateId = templateId)
+        // Create workout session
+        val sessionId = startWorkout(templateId = templateId)
+
+        // Copy exercises from template to session
+        if (templateExerciseDao != null) {
+            val templateExercises = templateExerciseDao.getForCloning(templateId)
+
+            templateExercises.forEach { templateExercise ->
+                addExerciseToSession(
+                    sessionId = sessionId,
+                    exerciseId = templateExercise.exerciseId,
+                    order = templateExercise.order
+                )
+            }
+        }
+
+        return sessionId
     }
 }

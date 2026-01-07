@@ -16,6 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.neokratos.data.local.entity.getVolume
 import com.example.neokratos.data.local.relations.SessionExerciseWithDetails
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 /**
  * Card showing an exercise with all its sets.
@@ -255,28 +257,52 @@ private fun AddSetDialog(
                 // Weight input
                 OutlinedTextField(
                     value = weight,
-                    onValueChange = { weight = it },
+                    onValueChange = { newValue ->
+                        // Only allow numbers and single decimal point
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d*$"))) {
+                            weight = newValue
+                        }
+                    },
                     label = { Text("Weight (kg)") },
                     singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 // Reps input
                 OutlinedTextField(
                     value = reps,
-                    onValueChange = { reps = it },
+                    onValueChange = { newValue ->
+                        // Only allow integer numbers
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
+                            reps = newValue
+                        }
+                    },
                     label = { Text("Reps") },
                     singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 // RPE input
                 OutlinedTextField(
                     value = rpe,
-                    onValueChange = { rpe = it },
+                    onValueChange = { newValue ->
+                        // Only allow numbers with single decimal, max 10
+                        if (newValue.isEmpty() || newValue.matches(Regex("^([0-9]|10)(\\.\\d?)?$"))) {
+                            rpe = newValue
+                        }
+                    },
                     label = { Text("RPE (optional)") },
                     placeholder = { Text("1-10") },
                     singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
 

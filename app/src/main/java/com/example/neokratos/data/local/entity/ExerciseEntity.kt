@@ -56,8 +56,10 @@ data class ExerciseEntity(
      * Esempio: per bench press → [DELTS_ANTERIOR, TRICEPS]
      *
      * Lista vuota = nessun muscolo secondario
+     * * CORREZIONE: Modificato in List<MuscleGroup>? per evitare crash
+     * se il database contiene NULL in questa colonna.
      */
-    val secondaryMuscleGroups: List<MuscleGroup> = emptyList(),
+    val secondaryMuscleGroups: List<MuscleGroup>? = emptyList(),
 
     // ===== EQUIPMENT =====
 
@@ -110,28 +112,33 @@ data class ExerciseEntity(
  */
 
 /**
- * Ritorna tutti i muscle groups coinvolti (primary + secondary)
- * Utile per muscle balance analytics
+ * Returns all muscle groups involved (primary + secondary)
+ * Useful for muscle balance analytics
  */
 fun ExerciseEntity.getAllMuscleGroups(): List<MuscleGroup> {
-    return listOf(primaryMuscleGroup) + secondaryMuscleGroups
+    // Qui gestivi già il null con '?:', quindi ora funzionerà correttamente
+    return listOf(primaryMuscleGroup) + (secondaryMuscleGroups ?: emptyList())
 }
 
 /**
- * Verifica se l'esercizio allena un muscolo specifico
+ * Checks if the exercise trains a specific muscle
  */
 fun ExerciseEntity.trainsMuscle(muscle: MuscleGroup): Boolean {
-    return primaryMuscleGroup == muscle || secondaryMuscleGroups.contains(muscle)
+    // Anche qui gestivi già il null con '?.'
+    return primaryMuscleGroup == muscle || (secondaryMuscleGroups?.contains(muscle) == true)
 }
 
 /**
- * Ritorna una stringa human-readable per i muscle groups
- * Esempio: "Quadriceps (Glutes, Hamstrings)"
+ * Returns a human-readable string for muscle groups
+ * Example: "Quadriceps (Glutes, Hamstrings)"
  */
 fun ExerciseEntity.getMuscleGroupsDisplay(): String {
     val primary = primaryMuscleGroup.name.lowercase().replace("_", " ")
+
+    // Anche qui gestivi già il null
     val secondary = secondaryMuscleGroups
-        .joinToString(", ") { it.name.lowercase().replace("_", " ") }
+        ?.joinToString(", ") { it.name.lowercase().replace("_", " ") }
+        ?: ""
 
     return if (secondary.isNotEmpty()) {
         "$primary ($secondary)"
