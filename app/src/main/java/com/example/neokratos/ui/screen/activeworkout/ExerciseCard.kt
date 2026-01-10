@@ -1,10 +1,10 @@
 package com.example.neokratos.ui.screen.activeworkout
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -12,36 +12,32 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.neokratos.data.local.entity.getVolume
+import com.example.neokratos.data.local.entity.SetLogEntity
 import com.example.neokratos.data.local.relations.SessionExerciseWithDetails
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
+import com.example.neokratos.data.local.entity.getVolume
 
-/**
- * Card showing an exercise with all its sets.
- *
- * Features:
- * - Exercise name and details
- * - List of completed sets
- * - Quick add set button
- * - Previous workout comparison
- */
 @Composable
 fun ExerciseCard(
     exerciseWithDetails: SessionExerciseWithDetails,
     isSelected: Boolean,
     onSelect: () -> Unit,
-    onAddSet: (weight: Float, reps: Int, rpe: Float?) -> Unit,
+    onAddSet: (weight: Float, reps: Int, rpe: Float?, restSeconds: Int) -> Unit,
     onRemove: () -> Unit,
+    onUpdateSet: (SetLogEntity) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddSetDialog by remember { mutableStateOf(false) }
     var showRemoveDialog by remember { mutableStateOf(false) }
+    var setToEdit by remember { mutableStateOf<SetLogEntity?>(null) }
 
     val exercise = exerciseWithDetails.exercise
     val sets = exerciseWithDetails.sets
+
+    // Prendi il rest time dal primo set (se presente) o usa default
+    val defaultRestSeconds = sets.firstOrNull()?.restSeconds ?: 90
 
     Card(
         modifier = modifier
@@ -54,7 +50,6 @@ fun ExerciseCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header: exercise name + actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -73,7 +68,6 @@ fun ExerciseCard(
                     )
                 }
 
-                // Remove exercise button
                 IconButton(onClick = { showRemoveDialog = true }) {
                     Icon(
                         Icons.Default.Delete,
@@ -85,7 +79,6 @@ fun ExerciseCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Sets list
             if (sets.isEmpty()) {
                 Text(
                     text = "No sets yet",
@@ -93,7 +86,6 @@ fun ExerciseCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                // Set headers
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -101,85 +93,53 @@ fun ExerciseCard(
                     Text(
                         text = "Set",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.width(40.dp)
+                        modifier = Modifier.width(30.dp)
                     )
                     Text(
                         text = "Weight",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.width(70.dp)
+                        modifier = Modifier.width(60.dp)
                     )
                     Text(
                         text = "Reps",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.width(50.dp)
+                        modifier = Modifier.width(45.dp)
                     )
                     Text(
                         text = "RPE",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.width(50.dp)
+                        modifier = Modifier.width(45.dp)
                     )
                     Text(
                         text = "Volume",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.width(70.dp)
+                        modifier = Modifier.width(65.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Set rows
                 sets.forEach { set ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${set.setNumber}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.width(40.dp)
-                        )
-                        Text(
-                            text = "${set.weight} kg",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.width(70.dp)
-                        )
-                        Text(
-                            text = "${set.reps}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.width(50.dp)
-                        )
-                        Text(
-                            text = set.rpe?.let { "%.1f".format(it) } ?: "-",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.width(50.dp)
-                        )
-                        Text(
-                            text = "${set.getVolume().toInt()} kg",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.width(70.dp)
-                        )
-                    }
+                    SetRow(
+                        set = set,
+                        onClick = { setToEdit = set }
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Summary
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Total: ${sets.size} sets",
+                    text = "Total: ${sets.count { it.completed }} / ${sets.size} sets",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Volume: ${sets.sumOf { it.getVolume().toDouble() }.toInt()} kg",
+                    text = "Volume: ${sets.filter { it.completed }.sumOf { it.getVolume().toDouble() }.toInt()} kg",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -188,7 +148,6 @@ fun ExerciseCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Add set button
             Button(
                 onClick = { showAddSetDialog = true },
                 modifier = Modifier.fillMaxWidth()
@@ -200,19 +159,29 @@ fun ExerciseCard(
         }
     }
 
-    // Add set dialog
     if (showAddSetDialog) {
         AddSetDialog(
-            previousSet = sets.lastOrNull(),
+            previousSet = sets.lastOrNull { it.completed },
+            defaultRestSeconds = defaultRestSeconds,
             onConfirm = { weight, reps, rpe ->
-                onAddSet(weight, reps, rpe)
+                onAddSet(weight, reps, rpe, defaultRestSeconds)
                 showAddSetDialog = false
             },
             onDismiss = { showAddSetDialog = false }
         )
     }
 
-    // Remove exercise dialog
+    if (setToEdit != null) {
+        EditSetDialog(
+            set = setToEdit!!,
+            onConfirm = { updatedSet ->
+                onUpdateSet(updatedSet)
+                setToEdit = null
+            },
+            onDismiss = { setToEdit = null }
+        )
+    }
+
     if (showRemoveDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
@@ -235,30 +204,76 @@ fun ExerciseCard(
     }
 }
 
-/**
- * Dialog for adding a new set.
- * Pre-fills with previous set data.
- */
 @Composable
-private fun AddSetDialog(
-    previousSet: com.example.neokratos.data.local.entity.SetLogEntity?,
-    onConfirm: (weight: Float, reps: Int, rpe: Float?) -> Unit,
+private fun SetRow(
+    set: SetLogEntity,
+    onClick: () -> Unit
+) {
+    val backgroundColor = if (set.completed) {
+        MaterialTheme.colorScheme.surfaceVariant
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .background(backgroundColor, shape = RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "${set.setNumber}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (set.completed) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.width(30.dp)
+        )
+        Text(
+            text = if (set.weight > 0) "${set.weight} kg" else "-",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.width(60.dp)
+        )
+        Text(
+            text = if (set.reps > 0) "${set.reps}" else "-",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.width(45.dp)
+        )
+        Text(
+            text = set.rpe?.let { "%.1f".format(it) } ?: "-",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.width(45.dp)
+        )
+        Text(
+            text = if (set.completed && set.weight > 0) "${set.getVolume().toInt()} kg" else "-",
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (set.completed) MaterialTheme.colorScheme.primary else Color.Unspecified,
+            fontWeight = if (set.completed) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier.width(65.dp)
+        )
+    }
+}
+
+@Composable
+private fun EditSetDialog(
+    set: SetLogEntity,
+    onConfirm: (SetLogEntity) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var weight by remember { mutableStateOf(previousSet?.weight?.toString() ?: "") }
-    var reps by remember { mutableStateOf(previousSet?.reps?.toString() ?: "") }
-    var rpe by remember { mutableStateOf(previousSet?.rpe?.toString() ?: "") }
+    var weight by remember { mutableStateOf(if (set.weight > 0) set.weight.toString() else "") }
+    var reps by remember { mutableStateOf(if (set.reps > 0) set.reps.toString() else "") }
+    var rpe by remember { mutableStateOf(set.rpe?.toString() ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Set") },
+        title = { Text("Edit Set ${set.setNumber}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Weight input
                 OutlinedTextField(
                     value = weight,
                     onValueChange = { newValue ->
-                        // Only allow numbers and single decimal point
                         if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d*$"))) {
                             weight = newValue
                         }
@@ -271,11 +286,9 @@ private fun AddSetDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Reps input
                 OutlinedTextField(
                     value = reps,
                     onValueChange = { newValue ->
-                        // Only allow integer numbers
                         if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
                             reps = newValue
                         }
@@ -288,11 +301,9 @@ private fun AddSetDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // RPE input
                 OutlinedTextField(
                     value = rpe,
                     onValueChange = { newValue ->
-                        // Only allow numbers with single decimal, max 10
                         if (newValue.isEmpty() || newValue.matches(Regex("^([0-9]|10)(\\.\\d?)?$"))) {
                             rpe = newValue
                         }
@@ -306,12 +317,168 @@ private fun AddSetDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // Mostra il rest time che verrà usato
+                set.restSeconds?.let { rest ->
+                    val minutes = rest / 60
+                    val seconds = rest % 60
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Text(
+                            text = "Rest timer: ${minutes}:${seconds.toString().padStart(2, '0')}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val w = weight.toFloatOrNull() ?: 0f
+                    val r = reps.toIntOrNull() ?: 0
+                    val rpeValue = rpe.toFloatOrNull()
+
+                    if (w > 0 && r > 0) {
+                        onConfirm(
+                            set.copy(
+                                weight = w,
+                                reps = r,
+                                rpe = rpeValue,
+                                completed = true
+                            )
+                        )
+                    }
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun AddSetDialog(
+    previousSet: SetLogEntity?,
+    defaultRestSeconds: Int,
+    onConfirm: (weight: Float, reps: Int, rpe: Float?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var weight by remember { mutableStateOf(previousSet?.weight?.toString() ?: "") }
+    var reps by remember { mutableStateOf(previousSet?.reps?.toString() ?: "") }
+    var rpe by remember { mutableStateOf(previousSet?.rpe?.toString() ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Set") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d*$"))) {
+                            weight = newValue
+                        }
+                    },
+                    label = { Text("Weight (kg)") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = reps,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
+                            reps = newValue
+                        }
+                    },
+                    label = { Text("Reps") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = rpe,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^([0-9]|10)(\\.\\d?)?$"))) {
+                            rpe = newValue
+                        }
+                    },
+                    label = { Text("RPE (optional)") },
+                    placeholder = { Text("1-10") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Info set precedente
                 if (previousSet != null) {
+                    Divider()
                     Text(
-                        text = "Previous: ${previousSet.weight}kg × ${previousSet.reps} @ RPE ${previousSet.rpe ?: "-"}",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "Previous set",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Text(
+                        text = "${previousSet.weight}kg × ${previousSet.reps} @ RPE ${previousSet.rpe ?: "-"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                // Info rest timer
+                Divider()
+                val minutes = defaultRestSeconds / 60
+                val seconds = defaultRestSeconds % 60
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Rest timer will start",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "${minutes}:${seconds.toString().padStart(2, '0')}",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                 }
             }
         },
@@ -325,7 +492,7 @@ private fun AddSetDialog(
                     onConfirm(w, r, rpeValue)
                 }
             ) {
-                Text("Add")
+                Text("Save & Start Timer")
             }
         },
         dismissButton = {

@@ -6,6 +6,8 @@ import com.example.neokratos.data.local.entity.SetLogEntity
 import com.example.neokratos.data.local.relations.SessionComplete
 import com.example.neokratos.data.repository.ExerciseRepository
 import com.example.neokratos.data.repository.WorkoutSessionRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,13 +18,7 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel for Active Workout screen.
  *
- * Manages state and operations during an active workout:
- * - Starting/ending workout
- * - Adding/removing exercises
- * - Logging sets
- * - Timer for rest periods
- *
- * This is the main ViewModel for Release 1.0 live workout feature.
+ * NEW: Complete rest timer implementation with coroutine-based countdown
  */
 class ActiveWorkoutViewModel(
     private val workoutSessionRepository: WorkoutSessionRepository,
@@ -31,12 +27,6 @@ class ActiveWorkoutViewModel(
 
     // ===== STATE =====
 
-    /**
-     * Currently active workout with all details.
-     * null if no workout is active.
-     *
-     * UI observes this to display exercises and sets.
-     */
     val activeWorkout: StateFlow<SessionComplete?> =
         workoutSessionRepository.activeWorkoutComplete
             .stateIn(
@@ -45,44 +35,33 @@ class ActiveWorkoutViewModel(
                 initialValue = null
             )
 
-    /**
-     * UI state for loading, errors, etc.
-     */
     private val _uiState = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Idle)
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
 
-    /**
-     * Currently selected exercise for adding sets.
-     * Used in UI to show which exercise is "active" for logging.
-     */
     private val _selectedExerciseId = MutableStateFlow<Long?>(null)
     val selectedExerciseId: StateFlow<Long?> = _selectedExerciseId.asStateFlow()
 
     /**
-     * Rest timer state.
-     * When user logs a set, timer starts automatically.
+     * NEW: Rest timer state with proper coroutine management.
      */
     private val _restTimerState = MutableStateFlow<RestTimerState>(RestTimerState.Idle)
     val restTimerState: StateFlow<RestTimerState> = _restTimerState.asStateFlow()
 
+    /**
+     * NEW: Job for timer coroutine - allows cancellation.
+     */
+    private var timerJob: Job? = null
+
     // ===== WORKOUT OPERATIONS =====
 
-    /**
-     * Start a new workout session.
-     *
-     * @param templateId Optional template to base workout on
-     * @param name Optional custom name
-     */
     fun startWorkout(templateId: Long? = null, name: String? = null) {
         viewModelScope.launch {
             try {
                 _uiState.value = WorkoutUiState.Loading
 
                 val sessionId = if (templateId != null) {
-                    // Start from template (copies exercises)
                     workoutSessionRepository.startWorkoutFromTemplate(templateId)
                 } else {
-                    // Start empty workout
                     workoutSessionRepository.startWorkout(name = name)
                 }
 
@@ -96,10 +75,6 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    /**
-     * Complete the active workout.
-     * Calculates final stats and marks as finished.
-     */
     fun completeWorkout() {
         viewModelScope.launch {
             try {
@@ -108,6 +83,9 @@ class ActiveWorkoutViewModel(
                 _uiState.value = WorkoutUiState.Loading
 
                 workoutSessionRepository.completeWorkout(session.session.id)
+
+                // Cancel timer if running
+                cancelTimer()
 
                 _uiState.value = WorkoutUiState.WorkoutCompleted
 
@@ -119,16 +97,15 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    /**
-     * Cancel the active workout.
-     * Deletes the session and all its data.
-     */
     fun cancelWorkout() {
         viewModelScope.launch {
             try {
                 val session = activeWorkout.value ?: return@launch
 
                 workoutSessionRepository.cancelWorkout(session.session.id)
+
+                // Cancel timer if running
+                cancelTimer()
 
                 _uiState.value = WorkoutUiState.Idle
 
@@ -142,11 +119,6 @@ class ActiveWorkoutViewModel(
 
     // ===== EXERCISE OPERATIONS =====
 
-    /**
-     * Add an exercise to the current workout.
-     *
-     * @param exerciseId Exercise from library
-     */
     fun addExercise(exerciseId: Long) {
         viewModelScope.launch {
             try {
@@ -157,10 +129,8 @@ class ActiveWorkoutViewModel(
                     exerciseId = exerciseId
                 )
 
-                // Auto-select the newly added exercise
                 _selectedExerciseId.value = sessionExerciseId
 
-                // Increment usage count for this exercise
                 exerciseRepository.incrementUsageCount(exerciseId)
 
             } catch (e: Exception) {
@@ -171,15 +141,11 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    /**
-     * Remove an exercise from the workout.
-     */
     fun removeExercise(sessionExerciseId: Long) {
         viewModelScope.launch {
             try {
                 workoutSessionRepository.removeExerciseFromSession(sessionExerciseId)
 
-                // Clear selection if this was the selected exercise
                 if (_selectedExerciseId.value == sessionExerciseId) {
                     _selectedExerciseId.value = null
                 }
@@ -192,17 +158,10 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    /**
-     * Select an exercise to add sets to.
-     * Used in UI to highlight which exercise is "active".
-     */
     fun selectExercise(sessionExerciseId: Long) {
         _selectedExerciseId.value = sessionExerciseId
     }
 
-    /**
-     * Mark an exercise as completed.
-     */
     fun completeExercise(sessionExerciseId: Long) {
         viewModelScope.launch {
             try {
@@ -217,16 +176,6 @@ class ActiveWorkoutViewModel(
 
     // ===== SET LOGGING =====
 
-    /**
-     * Log a set for the currently selected exercise.
-     *
-     * This is called when user taps "Add Set" button.
-     *
-     * @param weight Weight in kg
-     * @param reps Number of reps
-     * @param rpe Rate of Perceived Exertion (1-10)
-     * @param restSeconds Rest time after this set
-     */
     fun logSet(
         weight: Float,
         reps: Int,
@@ -259,10 +208,6 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    /**
-     * Log a set for a specific exercise (not the selected one).
-     * Useful when editing sets from exercise list.
-     */
     fun logSetForExercise(
         sessionExerciseId: Long,
         weight: Float,
@@ -292,9 +237,6 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    /**
-     * Update an existing set.
-     */
     fun updateSet(setLog: SetLogEntity) {
         viewModelScope.launch {
             try {
@@ -307,9 +249,6 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    /**
-     * Delete a set.
-     */
     fun deleteSet(setId: Long) {
         viewModelScope.launch {
             try {
@@ -322,26 +261,66 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    // ===== REST TIMER =====
+    // ===== REST TIMER - NEW IMPLEMENTATION =====
 
     /**
-     * Start rest timer for N seconds.
-     * Timer counts down and notifies when complete.
+     * Start rest timer with coroutine-based countdown.
+     *
+     * Concept:
+     * - Launches coroutine in viewModelScope
+     * - Uses delay(1000L) for 1-second intervals
+     * - Updates state each second
+     * - Job stored for cancellation
      */
     private fun startRestTimer(seconds: Int) {
-        // Simple implementation - will be enhanced with actual countdown later
+        // Cancel existing timer
+        cancelTimer()
+
         _restTimerState.value = RestTimerState.Running(
             totalSeconds = seconds,
             remainingSeconds = seconds
         )
+
+        // Launch countdown coroutine
+        timerJob = viewModelScope.launch {
+            var remaining = seconds
+
+            while (remaining > 0) {
+                delay(1000L) // Wait 1 second
+                remaining -= 1
+
+                // Update state if still running (not paused)
+                if (_restTimerState.value is RestTimerState.Running) {
+                    _restTimerState.value = RestTimerState.Running(
+                        totalSeconds = seconds,
+                        remainingSeconds = remaining
+                    )
+                } else {
+                    // Timer was paused, exit loop
+                    break
+                }
+            }
+
+            // Timer completed
+            if (remaining == 0) {
+                _restTimerState.value = RestTimerState.Completed
+                // TODO: Play sound/vibrate
+            }
+        }
     }
 
     /**
      * Pause rest timer.
+     * Cancels coroutine and saves current state.
      */
     fun pauseRestTimer() {
         val current = _restTimerState.value
         if (current is RestTimerState.Running) {
+            // Cancel coroutine
+            timerJob?.cancel()
+            timerJob = null
+
+            // Save paused state
             _restTimerState.value = RestTimerState.Paused(
                 totalSeconds = current.totalSeconds,
                 remainingSeconds = current.remainingSeconds
@@ -351,14 +330,13 @@ class ActiveWorkoutViewModel(
 
     /**
      * Resume rest timer.
+     * Restarts coroutine from paused time.
      */
     fun resumeRestTimer() {
         val current = _restTimerState.value
         if (current is RestTimerState.Paused) {
-            _restTimerState.value = RestTimerState.Running(
-                totalSeconds = current.totalSeconds,
-                remainingSeconds = current.remainingSeconds
-            )
+            // Restart timer from remaining time
+            startRestTimer(current.remainingSeconds)
         }
     }
 
@@ -366,14 +344,28 @@ class ActiveWorkoutViewModel(
      * Skip/cancel rest timer.
      */
     fun skipRestTimer() {
+        cancelTimer()
         _restTimerState.value = RestTimerState.Idle
+    }
+
+    /**
+     * Cancel timer coroutine.
+     */
+    private fun cancelTimer() {
+        timerJob?.cancel()
+        timerJob = null
+    }
+
+    /**
+     * Cleanup when ViewModel is destroyed.
+     */
+    override fun onCleared() {
+        super.onCleared()
+        cancelTimer()
     }
 
     // ===== NOTES =====
 
-    /**
-     * Update workout notes.
-     */
     fun updateWorkoutNotes(notes: String) {
         viewModelScope.launch {
             try {
@@ -387,9 +379,6 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    /**
-     * Update exercise notes.
-     */
     fun updateExerciseNotes(sessionExerciseId: Long, notes: String) {
         viewModelScope.launch {
             try {
@@ -404,16 +393,10 @@ class ActiveWorkoutViewModel(
 
     // ===== HELPERS =====
 
-    /**
-     * Check if there's an active workout.
-     */
     fun hasActiveWorkout(): Boolean {
         return activeWorkout.value != null
     }
 
-    /**
-     * Get current session ID.
-     */
     fun getCurrentSessionId(): Long? {
         return activeWorkout.value?.session?.id
     }

@@ -13,13 +13,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.neokratos.data.local.entity.TemplateExerciseEntity
 import com.example.neokratos.data.local.entity.getSetsRepsDisplay
 
-/**
- * Screen showing list of workout templates.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TemplateListScreen(
@@ -31,11 +30,7 @@ fun TemplateListScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Workout Templates") }
-            )
-        },
+        // Nessuna TopAppBar - rimuoviamo il titolo
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Create template")
@@ -72,7 +67,6 @@ fun TemplateListScreen(
         }
     }
 
-    // Create template dialog
     if (showCreateDialog) {
         CreateTemplateDialog(
             onConfirm = { name ->
@@ -102,7 +96,8 @@ private fun EmptyTemplatesState(
         Text(
             text = "Create a template to save your workout routine",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onCreateTemplate) {
@@ -123,13 +118,13 @@ private fun TemplateCard(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -142,7 +137,6 @@ private fun TemplateCard(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Delete button
                 IconButton(onClick = { showDeleteDialog = true }) {
                     Icon(
                         Icons.Default.Delete,
@@ -152,14 +146,12 @@ private fun TemplateCard(
                 }
             }
 
-            // Exercise count
             Text(
                 text = "${templateWithDetails.exercisesWithDetails.size} exercises",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            // Exercise preview
             if (templateWithDetails.exercisesWithDetails.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     templateWithDetails.exercisesWithDetails.take(3).forEach { exerciseWithDetails ->
@@ -174,7 +166,8 @@ private fun TemplateCard(
                             Text(
                                 text = exerciseWithDetails.templateExercise.getSetsRepsDisplay(),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -191,12 +184,11 @@ private fun TemplateCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Start workout button (primary)
+                // Bottone Start Workout più prominente
                 Button(
                     onClick = onStartWorkout,
                     modifier = Modifier.weight(1f)
@@ -206,7 +198,6 @@ private fun TemplateCard(
                     Text("Start Workout")
                 }
 
-                // Edit button
                 OutlinedButton(onClick = onEdit) {
                     Icon(Icons.Default.Edit, contentDescription = "Edit")
                 }
@@ -214,7 +205,6 @@ private fun TemplateCard(
         }
     }
 
-    // Delete confirmation dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -239,9 +229,6 @@ private fun TemplateCard(
     }
 }
 
-/**
- * Dialog for creating a new template.
- */
 @Composable
 private fun CreateTemplateDialog(
     onConfirm: (name: String) -> Unit,

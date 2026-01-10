@@ -24,29 +24,26 @@ import com.example.neokratos.ui.screen.history.HistoryViewModel
 import com.example.neokratos.ui.screen.history.HistoryViewModelFactory
 import com.example.neokratos.ui.screen.history.WorkoutDetailScreen
 import com.example.neokratos.ui.screen.home.HomeScreen
+import com.example.neokratos.ui.screen.templates.TemplateEditScreen
 import com.example.neokratos.ui.screen.templates.TemplateEditViewModel
+import com.example.neokratos.ui.screen.templates.TemplateEditViewModelFactory
 import com.example.neokratos.ui.screen.templates.TemplateListScreen
 import com.example.neokratos.ui.screen.templates.TemplateViewModel
 import com.example.neokratos.ui.theme.NeoKratosTheme
 import kotlinx.coroutines.launch
 
-/**
- * Main Activity - Entry point for the app.
- */
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Database
         val database = GymDatabase.getInstance(this)
 
-        // Repositories
         val workoutSessionRepository = WorkoutSessionRepository(
             workoutSessionDao = database.workoutSessionDao(),
             sessionExerciseDao = database.sessionExerciseDao(),
             setLogDao = database.setLogDao(),
-            templateExerciseDao = database.templateExerciseDao() // ADDED for template integration
+            templateExerciseDao = database.templateExerciseDao()
         )
 
         val templateRepository = WorkoutTemplateRepository(
@@ -57,7 +54,6 @@ class MainActivity : ComponentActivity() {
             database.exerciseDao()
         )
 
-        // Seed exercises on first launch
         lifecycleScope.launch {
             if (exerciseRepository.needsSeedData()) {
                 exerciseRepository.insertSeedExercises()
@@ -66,12 +62,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             NeoKratosTheme(dynamicColor = false) {
-                // Navigation for workout detail and template edit
+
                 val navController = rememberNavController()
                 var selectedWorkoutId by remember { mutableStateOf<Long?>(null) }
                 var selectedTemplateId by remember { mutableStateOf<Long?>(null) }
 
-                // ViewModels
                 val activeWorkoutViewModel: ActiveWorkoutViewModel = viewModel(
                     factory = ActiveWorkoutViewModelFactory(
                         workoutSessionRepository = workoutSessionRepository,
@@ -92,7 +87,7 @@ class MainActivity : ComponentActivity() {
                 )
 
                 val templateEditViewModel: TemplateEditViewModel = viewModel(
-                    factory = com.example.neokratos.ui.screen.templates.TemplateEditViewModelFactory(
+                    factory = TemplateEditViewModelFactory(
                         templateDao = database.workoutTemplateDao(),
                         templateExerciseDao = database.templateExerciseDao()
                     )
@@ -114,7 +109,12 @@ class MainActivity : ComponentActivity() {
                                 TemplateListScreen(
                                     viewModel = templateViewModel,
                                     onStartWorkout = { templateId ->
+                                        // Avvia workout da template
                                         activeWorkoutViewModel.startWorkout(templateId = templateId)
+                                        // Naviga alla schermata workout (tab 0)
+                                        navController.navigate("home") {
+                                            popUpTo("home") { inclusive = true }
+                                        }
                                     },
                                     onEditTemplate = { templateId ->
                                         selectedTemplateId = templateId
@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity() {
 
                     composable("template_edit") {
                         selectedTemplateId?.let { templateId ->
-                            com.example.neokratos.ui.screen.templates.TemplateEditScreen(
+                            TemplateEditScreen(
                                 templateId = templateId,
                                 viewModel = templateEditViewModel,
                                 onBack = { navController.popBackStack() }

@@ -34,7 +34,7 @@ import com.example.neokratos.data.local.entity.WorkoutTemplateEntity
         SessionExerciseEntity::class,   // ADDED: exercises in session
         SetLogEntity::class             // ADDED: set tracking
     ],
-    version = 9, // INCREMENTED: 7 → 8 (fix secondaryMuscleGroups nullable)
+    version = 10, // INCREMENTED: 7 → 8 (fix secondaryMuscleGroups nullable)
     exportSchema = false
 )
 @TypeConverters(Converters::class) // AGGIUNTO: abilita i converters per Enum e List

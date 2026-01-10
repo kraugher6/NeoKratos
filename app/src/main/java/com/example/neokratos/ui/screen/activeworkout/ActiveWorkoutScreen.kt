@@ -4,31 +4,24 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.neokratos.data.local.entity.SetLogEntity
 import com.example.neokratos.data.local.entity.getDisplayName
 import com.example.neokratos.data.local.entity.getDurationDisplay
 import com.example.neokratos.data.local.relations.SessionComplete
 import com.example.neokratos.data.local.relations.getTotalExercises
 import com.example.neokratos.data.local.relations.getTotalSets
 import com.example.neokratos.data.local.relations.getTotalVolume
+import com.example.neokratos.ui.screen.activeworkout.RestTimerState
+import com.example.neokratos.ui.screen.activeworkout.WorkoutUiState
 
-/**
- * Main screen for active workout.
- *
- * Shows:
- * - Workout info (duration, volume)
- * - List of exercises with sets
- * - Add exercise button
- * - Complete/cancel workout buttons
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveWorkoutScreen(
@@ -38,6 +31,7 @@ fun ActiveWorkoutScreen(
     val activeWorkout by viewModel.activeWorkout.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedExerciseId by viewModel.selectedExerciseId.collectAsStateWithLifecycle()
+    val restTimerState by viewModel.restTimerState.collectAsStateWithLifecycle()
 
     var showExercisePicker by remember { mutableStateOf(false) }
     var showCompleteDialog by remember { mutableStateOf(false) }
@@ -45,26 +39,27 @@ fun ActiveWorkoutScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(activeWorkout?.session?.getDisplayName() ?: "Workout")
-                },
-                actions = {
-                    // Cancel workout button
-                    IconButton(onClick = { showCancelDialog = true }) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel workout")
+            // Mostra TopAppBar solo se c'è un workout attivo
+            if (activeWorkout != null) {
+                TopAppBar(
+                    title = {
+                        Text(activeWorkout?.session?.getDisplayName() ?: "")
+                    },
+                    actions = {
+                        // X visibile solo con workout attivo
+                        IconButton(onClick = { showCancelDialog = true }) {
+                            Icon(Icons.Default.Close, contentDescription = "Cancel workout")
+                        }
                     }
-                }
-            )
+                )
+            }
         },
         floatingActionButton = {
-            // Only show FABs if workout is active
             if (activeWorkout != null) {
                 Column(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Complete workout button
                     FloatingActionButton(
                         onClick = { showCompleteDialog = true },
                         containerColor = MaterialTheme.colorScheme.primary
@@ -72,7 +67,6 @@ fun ActiveWorkoutScreen(
                         Icon(Icons.Default.Check, contentDescription = "Complete workout")
                     }
 
-                    // Add exercise button
                     ExtendedFloatingActionButton(
                         onClick = { showExercisePicker = true },
                         icon = { Icon(Icons.Default.Add, contentDescription = null) },
@@ -83,61 +77,74 @@ fun ActiveWorkoutScreen(
         }
     ) { padding ->
 
-        when {
-            // No active workout - show start screen
-            activeWorkout == null -> {
-                EmptyWorkoutState(
-                    onStartWorkout = { viewModel.startWorkout() },
+        Box(modifier = Modifier.fillMaxSize()) {
+            when {
+                activeWorkout == null -> {
+                    EmptyWorkoutState(
+                        onStartWorkout = { viewModel.startWorkout() },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                    )
+                }
+
+                else -> {
+                    ActiveWorkoutContent(
+                        session = activeWorkout!!,
+                        selectedExerciseId = selectedExerciseId,
+                        onExerciseSelected = { viewModel.selectExercise(it) },
+                        onAddSet = { sessionExerciseId, weight, reps, rpe, restSeconds ->
+                            viewModel.logSetForExercise(
+                                sessionExerciseId = sessionExerciseId,
+                                weight = weight,
+                                reps = reps,
+                                rpe = rpe,
+                                restSeconds = restSeconds
+                            )
+                        },
+                        onRemoveExercise = { viewModel.removeExercise(it) },
+                        onUpdateSet = { updatedSet ->
+                            viewModel.updateSet(updatedSet)
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                    )
+                }
+            }
+
+            // Rest Timer Overlay
+            if (restTimerState is RestTimerState.Running || restTimerState is RestTimerState.Paused) {
+                RestTimerOverlay(
+                    restTimerState = restTimerState,
+                    onPause = { viewModel.pauseRestTimer() },
+                    onResume = { viewModel.resumeRestTimer() },
+                    onSkip = { viewModel.skipRestTimer() },
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 80.dp)
                 )
             }
 
-            // Active workout - show exercises
-            else -> {
-                ActiveWorkoutContent(
-                    session = activeWorkout!!,
-                    selectedExerciseId = selectedExerciseId,
-                    onExerciseSelected = { viewModel.selectExercise(it) },
-                    onAddSet = { sessionExerciseId, weight, reps, rpe ->
-                        viewModel.logSetForExercise(
-                            sessionExerciseId = sessionExerciseId,
-                            weight = weight,
-                            reps = reps,
-                            rpe = rpe,
-                            restSeconds = 90 // Default 90 seconds rest
-                        )
-                    },
-                    onRemoveExercise = { viewModel.removeExercise(it) },
+            if (uiState is WorkoutUiState.Loading) {
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
-                )
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
         }
 
-        // Loading overlay
-        if (uiState is WorkoutUiState.Loading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        }
-
-        // Error snackbar
         if (uiState is WorkoutUiState.Error) {
             val message = (uiState as WorkoutUiState.Error).message
             LaunchedEffect(message) {
-                // Show snackbar or toast
+                // Handle error
             }
         }
 
-        // Workout completed - navigate back
         if (uiState is WorkoutUiState.WorkoutCompleted) {
             LaunchedEffect(Unit) {
                 onNavigateBack()
@@ -145,7 +152,6 @@ fun ActiveWorkoutScreen(
         }
     }
 
-    // Dialogs
     if (showCompleteDialog) {
         CompleteWorkoutDialog(
             onConfirm = {
@@ -178,9 +184,98 @@ fun ActiveWorkoutScreen(
     }
 }
 
-/**
- * Empty state when no workout is active.
- */
+@Composable
+private fun RestTimerOverlay(
+    restTimerState: RestTimerState,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onSkip: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val (totalSeconds, remainingSeconds, isRunning) = when (restTimerState) {
+        is RestTimerState.Running -> Triple(
+            restTimerState.totalSeconds,
+            restTimerState.remainingSeconds,
+            true
+        )
+        is RestTimerState.Paused -> Triple(
+            restTimerState.totalSeconds,
+            restTimerState.remainingSeconds,
+            false
+        )
+        else -> return
+    }
+
+    val progress = remainingSeconds.toFloat() / totalSeconds.toFloat()
+    val minutes = remainingSeconds / 60
+    val seconds = remainingSeconds % 60
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Rest Timer",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(80.dp)
+            ) {
+                CircularProgressIndicator(
+                    progress = progress,
+                    modifier = Modifier.fillMaxSize(),
+                    strokeWidth = 8.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = String.format("%d:%02d", minutes, seconds),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = if (isRunning) onPause else onResume,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isRunning) "Pause" else "Resume"
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(if (isRunning) "Pause" else "Resume")
+                }
+
+                Button(
+                    onClick = onSkip,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Skip")
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun EmptyWorkoutState(
     onStartWorkout: () -> Unit,
@@ -207,26 +302,22 @@ private fun EmptyWorkoutState(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(onClick = onStartWorkout) {
-            Text("Start Workout")
+            Text("Start Empty Workout")
         }
     }
 }
 
-/**
- * Main content showing active workout with exercises.
- */
 @Composable
 private fun ActiveWorkoutContent(
     session: SessionComplete,
     selectedExerciseId: Long?,
     onExerciseSelected: (Long) -> Unit,
-    onAddSet: (sessionExerciseId: Long, weight: Float, reps: Int, rpe: Float?) -> Unit,
+    onAddSet: (sessionExerciseId: Long, weight: Float, reps: Int, rpe: Float?, restSeconds: Int) -> Unit,
     onRemoveExercise: (Long) -> Unit,
+    onUpdateSet: (SetLogEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-
-        // Workout summary card
         WorkoutSummaryCard(
             session = session,
             modifier = Modifier
@@ -234,7 +325,6 @@ private fun ActiveWorkoutContent(
                 .padding(16.dp)
         )
 
-        // Exercise list
         if (session.exercisesWithDetails.isEmpty()) {
             EmptyExerciseList(
                 modifier = Modifier
@@ -255,10 +345,13 @@ private fun ActiveWorkoutContent(
                         exerciseWithDetails = exerciseWithDetails,
                         isSelected = exerciseWithDetails.sessionExercise.id == selectedExerciseId,
                         onSelect = { onExerciseSelected(exerciseWithDetails.sessionExercise.id) },
-                        onAddSet = { weight, reps, rpe ->
-                            onAddSet(exerciseWithDetails.sessionExercise.id, weight, reps, rpe)
+                        onAddSet = { weight, reps, rpe, restSeconds ->
+                            onAddSet(exerciseWithDetails.sessionExercise.id, weight, reps, rpe, restSeconds)
                         },
-                        onRemove = { onRemoveExercise(exerciseWithDetails.sessionExercise.id) }
+                        onRemove = { onRemoveExercise(exerciseWithDetails.sessionExercise.id) },
+                        onUpdateSet = { updatedSet ->
+                            onUpdateSet(updatedSet)
+                        }
                     )
                 }
             }
@@ -266,9 +359,6 @@ private fun ActiveWorkoutContent(
     }
 }
 
-/**
- * Empty state when no exercises in workout.
- */
 @Composable
 private fun EmptyExerciseList(
     modifier: Modifier = Modifier
@@ -289,9 +379,6 @@ private fun EmptyExerciseList(
     }
 }
 
-/**
- * Card showing workout summary (duration, volume, etc.)
- */
 @Composable
 private fun WorkoutSummaryCard(
     session: SessionComplete,
@@ -304,7 +391,6 @@ private fun WorkoutSummaryCard(
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Duration
             Column {
                 Text(
                     text = "Duration",
@@ -317,7 +403,6 @@ private fun WorkoutSummaryCard(
                 )
             }
 
-            // Exercises
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "Exercises",
@@ -330,7 +415,6 @@ private fun WorkoutSummaryCard(
                 )
             }
 
-            // Sets
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "Sets",
@@ -343,7 +427,6 @@ private fun WorkoutSummaryCard(
                 )
             }
 
-            // Volume
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "Volume",
@@ -359,9 +442,6 @@ private fun WorkoutSummaryCard(
     }
 }
 
-/**
- * Dialog to confirm completing workout.
- */
 @Composable
 private fun CompleteWorkoutDialog(
     onConfirm: () -> Unit,
@@ -384,9 +464,6 @@ private fun CompleteWorkoutDialog(
     )
 }
 
-/**
- * Dialog to confirm canceling workout.
- */
 @Composable
 private fun CancelWorkoutDialog(
     onConfirm: () -> Unit,
@@ -409,16 +486,12 @@ private fun CancelWorkoutDialog(
     )
 }
 
-/**
- * Simple exercise picker - will use the full version from ExercisePickerDialog.kt
- */
 @Composable
 private fun ExercisePickerDialog(
     onExerciseSelected: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // Import the full ExercisePickerDialog component
-    com.example.neokratos.ui.screen.activeworkout.ExercisePickerDialogScreen(
+    ExercisePickerDialogScreen(
         onExerciseSelected = onExerciseSelected,
         onDismiss = onDismiss
     )

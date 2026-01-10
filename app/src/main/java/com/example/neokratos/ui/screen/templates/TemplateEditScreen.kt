@@ -1,12 +1,17 @@
 package com.example.neokratos.ui.screen.templates
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,11 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.neokratos.data.local.entity.TemplateExerciseEntity
-import com.example.neokratos.data.local.entity.getSetsRepsDisplay
+import com.example.neokratos.data.local.relations.TemplateWithExerciseDetails
 
-/**
- * Screen for editing a template (adding/removing exercises, setting targets).
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TemplateEditScreen(
@@ -76,7 +78,6 @@ fun TemplateEditScreen(
         }
     }
 
-    // Exercise picker dialog
     if (showExercisePicker) {
         com.example.neokratos.ui.screen.activeworkout.ExercisePickerDialogScreen(
             onExerciseSelected = { exerciseId ->
@@ -90,7 +91,7 @@ fun TemplateEditScreen(
 
 @Composable
 private fun TemplateEditContent(
-    template: com.example.neokratos.data.local.relations.TemplateWithExerciseDetails,
+    template: TemplateWithExerciseDetails,
     onRemoveExercise: (Long) -> Unit,
     onUpdateExercise: (TemplateExerciseEntity) -> Unit,
     modifier: Modifier = Modifier
@@ -141,6 +142,14 @@ private fun EmptyTemplateState(
     }
 }
 
+data class SetConfig(
+    val setNumber: Int,
+    val repsMin: Int,
+    val repsMax: Int,
+    val weight: Float? = null,
+    val rpe: Float? = null
+)
+
 @Composable
 private fun TemplateExerciseCard(
     exerciseWithDetails: com.example.neokratos.data.local.relations.TemplateExerciseWithDetails,
@@ -151,49 +160,81 @@ private fun TemplateExerciseCard(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = { showEditDialog = true }
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = exerciseWithDetails.exercise.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${exerciseWithDetails.exercise.category.name} • ${exerciseWithDetails.exercise.equipment.name}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row {
+                    IconButton(onClick = { showEditDialog = true }) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit exercise"
+                        )
+                    }
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Remove exercise",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Mostra sets e rest time
+            val te = exerciseWithDetails.templateExercise
+            Text(
+                text = "${te.targetSets} sets × ${te.targetRepsMin}-${te.targetRepsMax} reps",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            te.restSeconds?.let { rest ->
+                val minutes = rest / 60
+                val seconds = rest % 60
                 Text(
-                    text = exerciseWithDetails.exercise.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${exerciseWithDetails.exercise.category.name} • ${exerciseWithDetails.exercise.equipment.name}",
+                    text = "Rest: ${minutes}:${seconds.toString().padStart(2, '0')}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = exerciseWithDetails.templateExercise.getSetsRepsDisplay(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold
-                )
             }
 
-            IconButton(onClick = { showDeleteDialog = true }) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Remove exercise",
-                    tint = MaterialTheme.colorScheme.error
+            if (te.notes != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = te.notes,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                 )
             }
         }
     }
 
-    // Edit dialog
     if (showEditDialog) {
-        EditExerciseDialog(
+        AdvancedEditExerciseDialog(
             exercise = exerciseWithDetails.templateExercise,
             exerciseName = exerciseWithDetails.exercise.name,
             onConfirm = { updated ->
@@ -204,7 +245,6 @@ private fun TemplateExerciseCard(
         )
     }
 
-    // Delete confirmation
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -229,99 +269,311 @@ private fun TemplateExerciseCard(
     }
 }
 
-/**
- * Dialog for editing exercise targets (sets, reps).
- */
 @Composable
-private fun EditExerciseDialog(
+private fun AdvancedEditExerciseDialog(
     exercise: TemplateExerciseEntity,
     exerciseName: String,
     onConfirm: (TemplateExerciseEntity) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var selectedMode by remember { mutableStateOf(0) } // 0 = Simple, 1 = Advanced
+
+    // Simple mode
     var sets by remember { mutableStateOf(exercise.targetSets.toString()) }
     var repsMin by remember { mutableStateOf(exercise.targetRepsMin.toString()) }
     var repsMax by remember { mutableStateOf(exercise.targetRepsMax.toString()) }
+
+    // Advanced mode - set individuali
+    var setConfigs by remember {
+        mutableStateOf(
+            List(exercise.targetSets) { index ->
+                SetConfig(
+                    setNumber = index + 1,
+                    repsMin = exercise.targetRepsMin,
+                    repsMax = exercise.targetRepsMax
+                )
+            }
+        )
+    }
+
+    var restMinutes by remember {
+        mutableStateOf((exercise.restSeconds ?: 90) / 60)
+    }
+    var restSeconds by remember {
+        mutableStateOf((exercise.restSeconds ?: 90) % 60)
+    }
+    var notes by remember { mutableStateOf(exercise.notes ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit $exerciseName") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Sets input
-                OutlinedTextField(
-                    value = sets,
-                    onValueChange = { newValue ->
-                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
-                            sets = newValue
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Mode selector
+                item {
+                    TabRow(
+                        selectedTabIndex = selectedMode,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Tab(
+                            selected = selectedMode == 0,
+                            onClick = { selectedMode = 0 },
+                            text = { Text("Simple") }
+                        )
+                        Tab(
+                            selected = selectedMode == 1,
+                            onClick = { selectedMode = 1 },
+                            text = { Text("Advanced") }
+                        )
+                    }
+                }
+
+                if (selectedMode == 0) {
+                    // SIMPLE MODE
+                    item {
+                        OutlinedTextField(
+                            value = sets,
+                            onValueChange = { newValue ->
+                                if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
+                                    sets = newValue
+                                    // Update setConfigs count
+                                    val newCount = newValue.toIntOrNull() ?: 0
+                                    if (newCount > 0) {
+                                        setConfigs = List(newCount) { index ->
+                                            setConfigs.getOrNull(index) ?: SetConfig(
+                                                setNumber = index + 1,
+                                                repsMin = repsMin.toIntOrNull() ?: 8,
+                                                repsMax = repsMax.toIntOrNull() ?: 12
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            label = { Text("Target Sets") },
+                            placeholder = { Text("3") },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = repsMin,
+                                onValueChange = { newValue ->
+                                    if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
+                                        repsMin = newValue
+                                    }
+                                },
+                                label = { Text("Min Reps") },
+                                placeholder = { Text("8") },
+                                singleLine = true,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedTextField(
+                                value = repsMax,
+                                onValueChange = { newValue ->
+                                    if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
+                                        repsMax = newValue
+                                    }
+                                },
+                                label = { Text("Max Reps") },
+                                placeholder = { Text("12") },
+                                singleLine = true,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                    },
-                    label = { Text("Target Sets") },
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    }
+                } else {
+                    // ADVANCED MODE - Set individuali
+                    item {
+                        Text(
+                            text = "Configure Each Set",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Reps min
-                    OutlinedTextField(
-                        value = repsMin,
-                        onValueChange = { newValue ->
-                            if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
-                                repsMin = newValue
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Number of sets: ${setConfigs.size}")
+                            Row {
+                                IconButton(
+                                    onClick = {
+                                        if (setConfigs.size > 1) {
+                                            setConfigs = setConfigs.dropLast(1)
+                                        }
+                                    },
+                                    enabled = setConfigs.size > 1
+                                ) {
+                                    Icon(Icons.Default.Delete, "Remove set")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        setConfigs = setConfigs + SetConfig(
+                                            setNumber = setConfigs.size + 1,
+                                            repsMin = setConfigs.lastOrNull()?.repsMin ?: 8,
+                                            repsMax = setConfigs.lastOrNull()?.repsMax ?: 12
+                                        )
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Add, "Add set")
+                                }
                             }
-                        },
-                        label = { Text("Min Reps") },
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
+                        }
+                    }
 
-                    // Reps max
-                    OutlinedTextField(
-                        value = repsMax,
-                        onValueChange = { newValue ->
-                            if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
-                                repsMax = newValue
+                    itemsIndexed(setConfigs) { index, setConfig ->
+                        SetConfigCard(
+                            setConfig = setConfig,
+                            onUpdate = { updated ->
+                                setConfigs = setConfigs.toMutableList().apply {
+                                    this[index] = updated
+                                }
                             }
-                        },
-                        label = { Text("Max Reps") },
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                        ),
-                        modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                // REST TIME (common to both modes)
+                item {
+                    Divider()
+                    Text(
+                        text = "Rest Time",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
-                Text(
-                    text = "Example: 3 sets of 8-12 reps",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Minutes",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            Slider(
+                                value = restMinutes.toFloat(),
+                                onValueChange = { restMinutes = it.toInt() },
+                                valueRange = 0f..5f,
+                                steps = 4
+                            )
+                            Text(
+                                text = "$restMinutes min",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Seconds",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            Slider(
+                                value = restSeconds.toFloat(),
+                                onValueChange = { restSeconds = it.toInt() },
+                                valueRange = 0f..55f,
+                                steps = 10
+                            )
+                            Text(
+                                text = "$restSeconds sec",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Text(
+                            text = "Total Rest: ${restMinutes}:${restSeconds.toString().padStart(2, '0')}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+
+                // NOTES
+                item {
+                    OutlinedTextField(
+                        value = notes,
+                        onValueChange = { notes = it },
+                        label = { Text("Notes (optional)") },
+                        placeholder = { Text("e.g., Piramidale, dropset, pause reps") },
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    val s = sets.toIntOrNull() ?: return@TextButton
-                    val rMin = repsMin.toIntOrNull() ?: return@TextButton
-                    val rMax = repsMax.toIntOrNull() ?: return@TextButton
+                    if (selectedMode == 0) {
+                        // Simple mode
+                        val s = sets.toIntOrNull() ?: return@TextButton
+                        val rMin = repsMin.toIntOrNull() ?: return@TextButton
+                        val rMax = repsMax.toIntOrNull() ?: return@TextButton
+                        val totalRestSeconds = (restMinutes * 60) + restSeconds
 
-                    onConfirm(
-                        exercise.copy(
-                            targetSets = s,
-                            targetRepsMin = rMin,
-                            targetRepsMax = rMax
+                        onConfirm(
+                            exercise.copy(
+                                targetSets = s,
+                                targetRepsMin = rMin,
+                                targetRepsMax = rMax,
+                                restSeconds = totalRestSeconds,
+                                notes = notes.ifBlank { null }
+                            )
                         )
-                    )
+                    } else {
+                        // Advanced mode
+                        val totalRestSeconds = (restMinutes * 60) + restSeconds
+
+                        // Per ora salviamo usando i valori del primo set come base
+                        // In futuro si può salvare la configurazione completa
+                        val firstSet = setConfigs.firstOrNull() ?: return@TextButton
+
+                        onConfirm(
+                            exercise.copy(
+                                targetSets = setConfigs.size,
+                                targetRepsMin = firstSet.repsMin,
+                                targetRepsMax = firstSet.repsMax,
+                                restSeconds = totalRestSeconds,
+                                notes = notes.ifBlank { null }
+                            )
+                        )
+                    }
                 }
             ) {
                 Text("Save")
@@ -333,4 +585,103 @@ private fun EditExerciseDialog(
             }
         }
     )
+}
+
+@Composable
+private fun SetConfigCard(
+    setConfig: SetConfig,
+    onUpdate: (SetConfig) -> Unit
+) {
+    var repsMin by remember { mutableStateOf(setConfig.repsMin.toString()) }
+    var repsMax by remember { mutableStateOf(setConfig.repsMax.toString()) }
+    var weight by remember { mutableStateOf(setConfig.weight?.toString() ?: "") }
+    var rpe by remember { mutableStateOf(setConfig.rpe?.toString() ?: "") }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Set ${setConfig.setNumber}",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = repsMin,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
+                            repsMin = newValue
+                            onUpdate(setConfig.copy(repsMin = newValue.toIntOrNull() ?: 8))
+                        }
+                    },
+                    label = { Text("Min") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+
+                OutlinedTextField(
+                    value = repsMax,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
+                            repsMax = newValue
+                            onUpdate(setConfig.copy(repsMax = newValue.toIntOrNull() ?: 12))
+                        }
+                    },
+                    label = { Text("Max") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d*$"))) {
+                            weight = newValue
+                            onUpdate(setConfig.copy(weight = newValue.toFloatOrNull()))
+                        }
+                    },
+                    label = { Text("Weight") },
+                    placeholder = { Text("kg") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+
+                OutlinedTextField(
+                    value = rpe,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^([0-9]|10)(\\.\\d?)?$"))) {
+                            rpe = newValue
+                            onUpdate(setConfig.copy(rpe = newValue.toFloatOrNull()))
+                        }
+                    },
+                    label = { Text("RPE") },
+                    placeholder = { Text("1-10") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
 }

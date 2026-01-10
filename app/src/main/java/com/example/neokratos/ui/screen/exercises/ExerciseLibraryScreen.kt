@@ -1,6 +1,5 @@
 package com.example.neokratos.ui.screen.exercises
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -19,9 +18,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.neokratos.data.local.ExerciseCategory
 import com.example.neokratos.data.local.entity.ExerciseEntity
 
-/**
- * Screen showing all exercises in the library.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExerciseLibraryScreen(
@@ -33,12 +29,8 @@ fun ExerciseLibraryScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
 
+    // Nessuna TopAppBar - rimuoviamo il titolo
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Exercise Library") }
-            )
-        },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Add exercise")
@@ -50,7 +42,6 @@ fun ExerciseLibraryScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Search bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = viewModel::updateSearchQuery,
@@ -71,7 +62,6 @@ fun ExerciseLibraryScreen(
                 singleLine = true
             )
 
-            // Category filters
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -97,7 +87,6 @@ fun ExerciseLibraryScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Exercise list
             if (exercises.isEmpty()) {
                 EmptyState(
                     modifier = Modifier
@@ -121,7 +110,6 @@ fun ExerciseLibraryScreen(
         }
     }
 
-    // Add exercise dialog (placeholder)
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
@@ -155,6 +143,7 @@ private fun EmptyState(modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExerciseListItem(exercise: ExerciseEntity) {
     Card(
