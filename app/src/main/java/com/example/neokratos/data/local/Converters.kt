@@ -175,4 +175,16 @@ class Converters {
             ?.split(",")
             ?.map { MuscleGroup.fromString(it.trim()) }
     }
+
+    // ===== BodyMetricType conversions =====
+
+    @TypeConverter
+    fun fromBodyMetricType(type: com.example.neokratos.data.local.entity.BodyMetricType): String {
+        return type.name
+    }
+
+    @TypeConverter
+    fun toBodyMetricType(value: String): com.example.neokratos.data.local.entity.BodyMetricType {
+        return com.example.neokratos.data.local.entity.BodyMetricType.valueOf(value)
+    }
 }

@@ -5,6 +5,8 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -39,7 +41,21 @@ sealed class BottomNavItem(
         icon = Icons.Default.Edit
     )
 
+    // NEW: Analytics tab
+    object Analytics : BottomNavItem(
+        id = "analytics",
+        label = "Analytics",
+        icon = Icons.Default.Insights
+    )
+
+    // NEW: Body Metrics tab
+    object BodyMetrics : BottomNavItem(
+        id = "body_metrics",
+        label = "Body",
+        icon = Icons.Default.MonitorWeight
+    )
+
     companion object {
-        val items = listOf(Workout, Templates, History, Exercises)
+        val items = listOf(Workout, Templates, History, Exercises, Analytics, BodyMetrics)
     }
 }

@@ -10,12 +10,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.neokratos.data.local.GymDatabase
+import com.example.neokratos.data.repository.AnalyticsRepository
+import com.example.neokratos.data.repository.BodyMetricsRepository
 import com.example.neokratos.data.repository.ExerciseRepository
 import com.example.neokratos.data.repository.WorkoutSessionRepository
 import com.example.neokratos.data.repository.WorkoutTemplateRepository
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutScreen
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutViewModel
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutViewModelFactory
+import com.example.neokratos.ui.screen.analytics.AnalyticsScreen
+import com.example.neokratos.ui.screen.analytics.AnalyticsViewModel
+import com.example.neokratos.ui.screen.analytics.AnalyticsViewModelFactory
+import com.example.neokratos.ui.screen.analytics.ExerciseAnalyticsScreen
+import com.example.neokratos.ui.screen.analytics.ExerciseAnalyticsViewModel
+import com.example.neokratos.ui.screen.bodymetrics.BodyMetricsScreen
+import com.example.neokratos.ui.screen.bodymetrics.BodyMetricsViewModel
+import com.example.neokratos.ui.screen.bodymetrics.BodyMetricsViewModelFactory
 import com.example.neokratos.ui.screen.exercises.ExerciseLibraryScreen
 import com.example.neokratos.ui.screen.exercises.ExerciseLibraryViewModel
 import com.example.neokratos.ui.screen.exercises.ExerciseLibraryViewModelFactory
@@ -24,21 +34,28 @@ import com.example.neokratos.ui.screen.history.HistoryViewModel
 import com.example.neokratos.ui.screen.history.HistoryViewModelFactory
 import com.example.neokratos.ui.screen.history.WorkoutDetailScreen
 import com.example.neokratos.ui.screen.home.HomeScreen
-import com.example.neokratos.ui.screen.templates.TemplateEditScreen
 import com.example.neokratos.ui.screen.templates.TemplateEditViewModel
-import com.example.neokratos.ui.screen.templates.TemplateEditViewModelFactory
 import com.example.neokratos.ui.screen.templates.TemplateListScreen
 import com.example.neokratos.ui.screen.templates.TemplateViewModel
 import com.example.neokratos.ui.theme.NeoKratosTheme
 import kotlinx.coroutines.launch
 
+/**
+ * Main Activity - Entry point for the app.
+ *
+ * Now includes:
+ * - PHASE 7: Analytics (overview, exercise analytics)
+ * - PHASE 8: Body Metrics (weight tracking, measurements)
+ */
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Database
         val database = GymDatabase.getInstance(this)
 
+        // Repositories
         val workoutSessionRepository = WorkoutSessionRepository(
             workoutSessionDao = database.workoutSessionDao(),
             sessionExerciseDao = database.sessionExerciseDao(),
@@ -54,6 +71,19 @@ class MainActivity : ComponentActivity() {
             database.exerciseDao()
         )
 
+        // NEW: Analytics Repository
+        val analyticsRepository = AnalyticsRepository(
+            workoutSessionDao = database.workoutSessionDao(),
+            sessionExerciseDao = database.sessionExerciseDao(),
+            setLogDao = database.setLogDao()
+        )
+
+        // NEW: Body Metrics Repository
+        val bodyMetricsRepository = BodyMetricsRepository(
+            bodyMetricDao = database.bodyMetricDao()
+        )
+
+        // Seed exercises on first launch
         lifecycleScope.launch {
             if (exerciseRepository.needsSeedData()) {
                 exerciseRepository.insertSeedExercises()
@@ -62,11 +92,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             NeoKratosTheme(dynamicColor = false) {
-
+                // Navigation controllers
                 val navController = rememberNavController()
                 var selectedWorkoutId by remember { mutableStateOf<Long?>(null) }
                 var selectedTemplateId by remember { mutableStateOf<Long?>(null) }
 
+                // ViewModels
                 val activeWorkoutViewModel: ActiveWorkoutViewModel = viewModel(
                     factory = ActiveWorkoutViewModelFactory(
                         workoutSessionRepository = workoutSessionRepository,
@@ -87,16 +118,31 @@ class MainActivity : ComponentActivity() {
                 )
 
                 val templateEditViewModel: TemplateEditViewModel = viewModel(
-                    factory = TemplateEditViewModelFactory(
+                    factory = com.example.neokratos.ui.screen.templates.TemplateEditViewModelFactory(
                         templateDao = database.workoutTemplateDao(),
                         templateExerciseDao = database.templateExerciseDao()
                     )
+                )
+
+                // NEW: Analytics ViewModels
+                val analyticsViewModel: AnalyticsViewModel = viewModel(
+                    factory = AnalyticsViewModelFactory(analyticsRepository)
+                )
+
+                val exerciseAnalyticsViewModel: ExerciseAnalyticsViewModel = viewModel {
+                    ExerciseAnalyticsViewModel(analyticsRepository)
+                }
+
+                // NEW: Body Metrics ViewModel
+                val bodyMetricsViewModel: BodyMetricsViewModel = viewModel(
+                    factory = BodyMetricsViewModelFactory(bodyMetricsRepository)
                 )
 
                 NavHost(
                     navController = navController,
                     startDestination = "home"
                 ) {
+                    // Home with bottom navigation
                     composable("home") {
                         HomeScreen(
                             workoutScreen = {
@@ -109,12 +155,7 @@ class MainActivity : ComponentActivity() {
                                 TemplateListScreen(
                                     viewModel = templateViewModel,
                                     onStartWorkout = { templateId ->
-                                        // Avvia workout da template
                                         activeWorkoutViewModel.startWorkout(templateId = templateId)
-                                        // Naviga alla schermata workout (tab 0)
-                                        navController.navigate("home") {
-                                            popUpTo("home") { inclusive = true }
-                                        }
                                     },
                                     onEditTemplate = { templateId ->
                                         selectedTemplateId = templateId
@@ -133,10 +174,24 @@ class MainActivity : ComponentActivity() {
                             },
                             exercisesScreen = {
                                 ExerciseLibraryScreen(viewModel = exerciseLibraryViewModel)
+                            },
+                            // NEW: Analytics screen
+                            analyticsScreen = {
+                                AnalyticsScreen(
+                                    viewModel = analyticsViewModel,
+                                    onNavigateToExerciseAnalytics = {
+                                        navController.navigate("exercise_analytics")
+                                    }
+                                )
+                            },
+                            // NEW: Body Metrics screen
+                            bodyMetricsScreen = {
+                                BodyMetricsScreen(viewModel = bodyMetricsViewModel)
                             }
                         )
                     }
 
+                    // Workout detail
                     composable("workout_detail") {
                         selectedWorkoutId?.let { workoutId ->
                             WorkoutDetailScreen(
@@ -147,14 +202,23 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // Template edit
                     composable("template_edit") {
                         selectedTemplateId?.let { templateId ->
-                            TemplateEditScreen(
+                            com.example.neokratos.ui.screen.templates.TemplateEditScreen(
                                 templateId = templateId,
                                 viewModel = templateEditViewModel,
                                 onBack = { navController.popBackStack() }
                             )
                         }
+                    }
+
+                    // NEW: Exercise Analytics
+                    composable("exercise_analytics") {
+                        ExerciseAnalyticsScreen(
+                            viewModel = exerciseAnalyticsViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
                     }
                 }
             }

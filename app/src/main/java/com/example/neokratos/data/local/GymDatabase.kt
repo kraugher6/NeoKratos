@@ -5,12 +5,14 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.neokratos.data.local.dao.BodyMetricDao
 import com.example.neokratos.data.local.dao.ExerciseDao
 import com.example.neokratos.data.local.dao.SessionExerciseDao
 import com.example.neokratos.data.local.dao.SetLogDao
 import com.example.neokratos.data.local.dao.TemplateExerciseDao
 import com.example.neokratos.data.local.dao.WorkoutSessionDao
 import com.example.neokratos.data.local.dao.WorkoutTemplateDao
+import com.example.neokratos.data.local.entity.BodyMetricEntity
 import com.example.neokratos.data.local.entity.ExerciseEntity
 import com.example.neokratos.data.local.entity.SessionExerciseEntity
 import com.example.neokratos.data.local.entity.SetLogEntity
@@ -31,10 +33,11 @@ import com.example.neokratos.data.local.entity.WorkoutTemplateEntity
         TemplateExerciseEntity::class,
         WorkoutTemplateEntity::class,
         WorkoutSessionEntity::class,
-        SessionExerciseEntity::class,   // ADDED: exercises in session
-        SetLogEntity::class             // ADDED: set tracking
+        SessionExerciseEntity::class,
+        SetLogEntity::class,
+        BodyMetricEntity::class
     ],
-    version = 10, // INCREMENTED: 7 → 8 (fix secondaryMuscleGroups nullable)
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class) // AGGIUNTO: abilita i converters per Enum e List
@@ -47,6 +50,7 @@ abstract class GymDatabase : RoomDatabase() {
     abstract fun workoutSessionDao(): WorkoutSessionDao
     abstract fun sessionExerciseDao(): SessionExerciseDao
     abstract fun setLogDao(): SetLogDao
+    abstract fun bodyMetricDao(): BodyMetricDao
 
     companion object {
         @Volatile

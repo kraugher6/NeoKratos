@@ -25,7 +25,9 @@ fun HomeScreen(
     workoutScreen: @Composable () -> Unit,
     templatesScreen: @Composable () -> Unit,
     historyScreen: @Composable () -> Unit,
-    exercisesScreen: @Composable () -> Unit
+    exercisesScreen: @Composable () -> Unit,
+    analyticsScreen: @Composable () -> Unit,
+    bodyMetricsScreen: @Composable () -> Unit
 ) {
     val navController = rememberNavController()
     val items = BottomNavItem.items
@@ -66,6 +68,8 @@ fun HomeScreen(
             composable(BottomNavItem.Templates.id) { templatesScreen() }
             composable(BottomNavItem.History.id) { historyScreen() }
             composable(BottomNavItem.Exercises.id) { exercisesScreen() }
+            composable(BottomNavItem.Analytics.id) { analyticsScreen() }
+            composable(BottomNavItem.BodyMetrics.id) { bodyMetricsScreen() }
         }
     }
 }
