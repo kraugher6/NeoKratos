@@ -1,11 +1,13 @@
 package com.example.neokratos.ui.screen.home
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,19 +17,17 @@ import com.example.neokratos.ui.navigation.BottomNavItem
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutViewModel
 
 /**
- * Main home screen with bottom navigation.
+ * Home screen with 4-tab bottom navigation.
  *
- * FIX 2: Disables navigation when workout is active.
- * User must finish or cancel workout before navigating.
+ * CLEAN. SIMPLE. FUNCTIONAL.
+ * No labels on bottom bar - just icons.
  */
 @Composable
 fun HomeScreen(
     workoutScreen: @Composable () -> Unit,
     templatesScreen: @Composable () -> Unit,
-    historyScreen: @Composable () -> Unit,
     exercisesScreen: @Composable () -> Unit,
-    analyticsScreen: @Composable () -> Unit,
-    bodyMetricsScreen: @Composable () -> Unit,
+    progressScreen: @Composable () -> Unit,
     activeWorkoutViewModel: ActiveWorkoutViewModel
 ) {
     val navController = rememberNavController()
@@ -49,16 +49,25 @@ fun HomeScreen(
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                tonalElevation = 0.dp, // Flat for brutal look
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
                 items.forEach { item ->
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
-
                     val isSelected = currentDestination?.route == item.id
 
                     NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.label) },
-                        label = { Text(item.label) },
+                        icon = {
+                            Icon(
+                                item.icon,
+                                contentDescription = item.label,
+                                // Selected = bigger
+                                modifier = Modifier.size(if (isSelected) 32.dp else 24.dp)
+                            )
+                        },
+                        label = null, // NO LABELS - more space, cleaner look
                         selected = isSelected,
                         // FIX 2: Disable navigation if workout active and not on workout tab
                         enabled = !hasActiveWorkout || item.id == BottomNavItem.Workout.id,
@@ -86,10 +95,8 @@ fun HomeScreen(
         ) {
             composable(BottomNavItem.Workout.id) { workoutScreen() }
             composable(BottomNavItem.Templates.id) { templatesScreen() }
-            composable(BottomNavItem.History.id) { historyScreen() }
             composable(BottomNavItem.Exercises.id) { exercisesScreen() }
-            composable(BottomNavItem.Analytics.id) { analyticsScreen() }
-            composable(BottomNavItem.BodyMetrics.id) { bodyMetricsScreen() }
+            composable(BottomNavItem.Progress.id) { progressScreen() }
         }
     }
 }

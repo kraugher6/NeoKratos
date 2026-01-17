@@ -20,9 +20,9 @@ import com.example.neokratos.data.local.relations.getTotalSets
 import com.example.neokratos.data.local.relations.getTotalVolume
 
 /**
- * Screen showing workout history list.
+ * History screen - NO TITLES, NO BULLSHIT.
+ * Just your workouts, big and clear.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel,
@@ -30,36 +30,22 @@ fun HistoryScreen(
 ) {
     val workouts by viewModel.workouts.collectAsStateWithLifecycle()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Workout History") }
-            )
-        }
-    ) { padding ->
-        if (workouts.isEmpty()) {
-            EmptyHistoryState(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(
-                    items = workouts,
-                    key = { it.session.id }
-                ) { workout ->
-                    WorkoutHistoryCard(
-                        workout = workout,
-                        onClick = { onWorkoutClick(workout.session.id) }
-                    )
-                }
+    if (workouts.isEmpty()) {
+        EmptyHistoryState()
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(
+                items = workouts,
+                key = { it.session.id }
+            ) { workout ->
+                WorkoutCard(
+                    workout = workout,
+                    onClick = { onWorkoutClick(workout.session.id) }
+                )
             }
         }
     }
@@ -70,86 +56,90 @@ private fun EmptyHistoryState(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(16.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "No Workouts Yet",
-            style = MaterialTheme.typography.headlineMedium
+            text = "💪",
+            style = MaterialTheme.typography.displayLarge
         )
-        Spacer(modifier = Modifier.height(8.dp))
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Text(
-            text = "Complete your first workout to see it here",
-            style = MaterialTheme.typography.bodyMedium,
+            text = "No workouts yet",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Get lifting to see your history",
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
 @Composable
-private fun WorkoutHistoryCard(
+private fun WorkoutCard(
     workout: SessionComplete,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Title and date
+            // Date - BIG and BOLD
+            Text(
+                text = workout.session.getDateDisplay(),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black
+            )
+
+            // Stats in ONE row - no labels, just icons + numbers
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Text(
-                    text = workout.session.getDisplayName(),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                CompactStat(
+                    value = workout.session.getDurationDisplay(),
+                    emoji = "⏱️"
                 )
-                Text(
-                    text = workout.session.getDateDisplay(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                CompactStat(
+                    value = "${workout.getTotalExercises()}",
+                    emoji = "🏋️"
+                )
+                CompactStat(
+                    value = "${workout.getTotalSets()}",
+                    emoji = "📊"
+                )
+                CompactStat(
+                    value = "${workout.getTotalVolume().toInt()}kg",
+                    emoji = "💪"
                 )
             }
 
-            // Stats row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                StatChip(
-                    label = "Duration",
-                    value = workout.session.getDurationDisplay()
-                )
-                StatChip(
-                    label = "Exercises",
-                    value = workout.getTotalExercises().toString()
-                )
-                StatChip(
-                    label = "Sets",
-                    value = workout.getTotalSets().toString()
-                )
-                StatChip(
-                    label = "Volume",
-                    value = "${workout.getTotalVolume().toInt()} kg"
-                )
-            }
-
-            // Exercise preview
+            // Exercise preview - ONE line, scrollable if needed
             if (workout.exercisesWithDetails.isNotEmpty()) {
                 Text(
                     text = workout.exercisesWithDetails
-                        .take(3)
                         .joinToString(" • ") { it.exercise.name },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
             }
         }
@@ -157,17 +147,22 @@ private fun WorkoutHistoryCard(
 }
 
 @Composable
-private fun StatChip(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun CompactStat(
+    value: String,
+    emoji: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = emoji,
+            style = MaterialTheme.typography.titleMedium
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
         )
     }
 }

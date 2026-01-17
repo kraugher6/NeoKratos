@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -16,26 +15,23 @@ import com.example.neokratos.data.repository.BodyMetricsRepository
 import com.example.neokratos.data.repository.ExerciseRepository
 import com.example.neokratos.data.repository.WorkoutSessionRepository
 import com.example.neokratos.data.repository.WorkoutTemplateRepository
-import com.example.neokratos.ui.navigation.BottomNavItem
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutScreen
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutViewModel
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutViewModelFactory
-import com.example.neokratos.ui.screen.analytics.AnalyticsScreen
 import com.example.neokratos.ui.screen.analytics.AnalyticsViewModel
 import com.example.neokratos.ui.screen.analytics.AnalyticsViewModelFactory
 import com.example.neokratos.ui.screen.analytics.ExerciseAnalyticsScreen
 import com.example.neokratos.ui.screen.analytics.ExerciseAnalyticsViewModel
-import com.example.neokratos.ui.screen.bodymetrics.BodyMetricsScreen
 import com.example.neokratos.ui.screen.bodymetrics.BodyMetricsViewModel
 import com.example.neokratos.ui.screen.bodymetrics.BodyMetricsViewModelFactory
 import com.example.neokratos.ui.screen.exercises.ExerciseLibraryScreen
 import com.example.neokratos.ui.screen.exercises.ExerciseLibraryViewModel
 import com.example.neokratos.ui.screen.exercises.ExerciseLibraryViewModelFactory
-import com.example.neokratos.ui.screen.history.HistoryScreen
 import com.example.neokratos.ui.screen.history.HistoryViewModel
 import com.example.neokratos.ui.screen.history.HistoryViewModelFactory
 import com.example.neokratos.ui.screen.history.WorkoutDetailScreen
 import com.example.neokratos.ui.screen.home.HomeScreen
+import com.example.neokratos.ui.screen.progress.ProgressScreen
 import com.example.neokratos.ui.screen.templates.TemplateEditViewModel
 import com.example.neokratos.ui.screen.templates.TemplateListScreen
 import com.example.neokratos.ui.screen.templates.TemplateViewModel
@@ -43,7 +39,13 @@ import com.example.neokratos.ui.theme.NeoKratosTheme
 import kotlinx.coroutines.launch
 
 /**
- * Main Activity - Entry point for the app.
+ * Main Activity - UPDATED for 4-tab navigation
+ *
+ * Bottom tabs:
+ * - Workout: Active workout screen
+ * - Templates: Workout templates
+ * - Exercises: Exercise library
+ * - Progress: History + Analytics + Body (combined)
  */
 class MainActivity : ComponentActivity() {
 
@@ -85,14 +87,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             NeoKratosTheme(dynamicColor = false) {
-                // Main navigation controller
-                val mainNavController = rememberNavController()
-
-                // State for selected IDs
+                val navController = rememberNavController()
                 var selectedWorkoutId by remember { mutableStateOf<Long?>(null) }
                 var selectedTemplateId by remember { mutableStateOf<Long?>(null) }
 
-                // ViewModels
                 val activeWorkoutViewModel: ActiveWorkoutViewModel = viewModel(
                     factory = ActiveWorkoutViewModelFactory(
                         workoutSessionRepository = workoutSessionRepository,
@@ -132,7 +130,7 @@ class MainActivity : ComponentActivity() {
                 )
 
                 NavHost(
-                    navController = mainNavController,
+                    navController = navController,
                     startDestination = "home"
                 ) {
                     composable("home") {
@@ -147,37 +145,31 @@ class MainActivity : ComponentActivity() {
                                 TemplateListScreen(
                                     viewModel = templateViewModel,
                                     onStartWorkout = { templateId ->
-                                        // Start workout and navigate to workout tab
                                         activeWorkoutViewModel.startWorkout(templateId = templateId)
                                     },
                                     onEditTemplate = { templateId ->
                                         selectedTemplateId = templateId
-                                        mainNavController.navigate("template_edit")
-                                    }
-                                )
-                            },
-                            historyScreen = {
-                                HistoryScreen(
-                                    viewModel = historyViewModel,
-                                    onWorkoutClick = { workoutId ->
-                                        selectedWorkoutId = workoutId
-                                        mainNavController.navigate("workout_detail")
+                                        navController.navigate("template_edit")
                                     }
                                 )
                             },
                             exercisesScreen = {
                                 ExerciseLibraryScreen(viewModel = exerciseLibraryViewModel)
                             },
-                            analyticsScreen = {
-                                AnalyticsScreen(
-                                    viewModel = analyticsViewModel,
+                            // NEW: Combined Progress screen
+                            progressScreen = {
+                                ProgressScreen(
+                                    historyViewModel = historyViewModel,
+                                    analyticsViewModel = analyticsViewModel,
+                                    bodyMetricsViewModel = bodyMetricsViewModel,
+                                    onWorkoutClick = { workoutId ->
+                                        selectedWorkoutId = workoutId
+                                        navController.navigate("workout_detail")
+                                    },
                                     onNavigateToExerciseAnalytics = {
-                                        mainNavController.navigate("exercise_analytics")
+                                        navController.navigate("exercise_analytics")
                                     }
                                 )
-                            },
-                            bodyMetricsScreen = {
-                                BodyMetricsScreen(viewModel = bodyMetricsViewModel)
                             },
                             activeWorkoutViewModel = activeWorkoutViewModel
                         )
@@ -188,7 +180,7 @@ class MainActivity : ComponentActivity() {
                             WorkoutDetailScreen(
                                 sessionId = workoutId,
                                 viewModel = historyViewModel,
-                                onBack = { mainNavController.popBackStack() }
+                                onBack = { navController.popBackStack() }
                             )
                         }
                     }
@@ -198,7 +190,7 @@ class MainActivity : ComponentActivity() {
                             com.example.neokratos.ui.screen.templates.TemplateEditScreen(
                                 templateId = templateId,
                                 viewModel = templateEditViewModel,
-                                onBack = { mainNavController.popBackStack() }
+                                onBack = { navController.popBackStack() }
                             )
                         }
                     }
@@ -206,7 +198,7 @@ class MainActivity : ComponentActivity() {
                     composable("exercise_analytics") {
                         ExerciseAnalyticsScreen(
                             viewModel = exerciseAnalyticsViewModel,
-                            onBack = { mainNavController.popBackStack() }
+                            onBack = { navController.popBackStack() }
                         )
                     }
                 }
