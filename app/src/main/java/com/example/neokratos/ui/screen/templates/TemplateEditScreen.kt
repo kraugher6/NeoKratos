@@ -8,8 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -40,9 +40,14 @@ fun TemplateEditScreen(
         topBar = {
             TopAppBar(
                 title = { Text(template?.template?.name ?: "Edit Template") },
+                // FIX 4: Replace back arrow with Save button
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Save and return",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             )
@@ -202,7 +207,6 @@ private fun TemplateExerciseCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Mostra sets e rest time
             val te = exerciseWithDetails.templateExercise
             Text(
                 text = "${te.targetSets} sets × ${te.targetRepsMin}-${te.targetRepsMax} reps",
@@ -276,14 +280,12 @@ private fun AdvancedEditExerciseDialog(
     onConfirm: (TemplateExerciseEntity) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selectedMode by remember { mutableStateOf(0) } // 0 = Simple, 1 = Advanced
+    var selectedMode by remember { mutableStateOf(0) }
 
-    // Simple mode
     var sets by remember { mutableStateOf(exercise.targetSets.toString()) }
     var repsMin by remember { mutableStateOf(exercise.targetRepsMin.toString()) }
     var repsMax by remember { mutableStateOf(exercise.targetRepsMax.toString()) }
 
-    // Advanced mode - set individuali
     var setConfigs by remember {
         mutableStateOf(
             List(exercise.targetSets) { index ->
@@ -312,7 +314,6 @@ private fun AdvancedEditExerciseDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Mode selector
                 item {
                     TabRow(
                         selectedTabIndex = selectedMode,
@@ -332,14 +333,12 @@ private fun AdvancedEditExerciseDialog(
                 }
 
                 if (selectedMode == 0) {
-                    // SIMPLE MODE
                     item {
                         OutlinedTextField(
                             value = sets,
                             onValueChange = { newValue ->
                                 if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
                                     sets = newValue
-                                    // Update setConfigs count
                                     val newCount = newValue.toIntOrNull() ?: 0
                                     if (newCount > 0) {
                                         setConfigs = List(newCount) { index ->
@@ -401,7 +400,6 @@ private fun AdvancedEditExerciseDialog(
                         }
                     }
                 } else {
-                    // ADVANCED MODE - Set individuali
                     item {
                         Text(
                             text = "Configure Each Set",
@@ -455,7 +453,6 @@ private fun AdvancedEditExerciseDialog(
                     }
                 }
 
-                // REST TIME (common to both modes)
                 item {
                     Divider()
                     Text(
@@ -524,7 +521,6 @@ private fun AdvancedEditExerciseDialog(
                     }
                 }
 
-                // NOTES
                 item {
                     OutlinedTextField(
                         value = notes,
@@ -541,7 +537,6 @@ private fun AdvancedEditExerciseDialog(
             TextButton(
                 onClick = {
                     if (selectedMode == 0) {
-                        // Simple mode
                         val s = sets.toIntOrNull() ?: return@TextButton
                         val rMin = repsMin.toIntOrNull() ?: return@TextButton
                         val rMax = repsMax.toIntOrNull() ?: return@TextButton
@@ -557,11 +552,7 @@ private fun AdvancedEditExerciseDialog(
                             )
                         )
                     } else {
-                        // Advanced mode
                         val totalRestSeconds = (restMinutes * 60) + restSeconds
-
-                        // Per ora salviamo usando i valori del primo set come base
-                        // In futuro si può salvare la configurazione completa
                         val firstSet = setConfigs.firstOrNull() ?: return@TextButton
 
                         onConfirm(

@@ -49,6 +49,15 @@ class TemplateViewModel(
     }
 
     /**
+     * Create a new template and return its ID.
+     *
+     * FIX 1: Used for creating template and immediately navigating to edit screen.
+     */
+    suspend fun createTemplateAndGetId(name: String): Long {
+        return dao.insert(WorkoutTemplateEntity(name = name))
+    }
+
+    /**
      * Add a template (legacy method for compatibility).
      */
     fun addTemplate(name: String) {

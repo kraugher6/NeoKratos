@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -15,6 +16,7 @@ import com.example.neokratos.data.repository.BodyMetricsRepository
 import com.example.neokratos.data.repository.ExerciseRepository
 import com.example.neokratos.data.repository.WorkoutSessionRepository
 import com.example.neokratos.data.repository.WorkoutTemplateRepository
+import com.example.neokratos.ui.navigation.BottomNavItem
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutScreen
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutViewModel
 import com.example.neokratos.ui.screen.activeworkout.ActiveWorkoutViewModelFactory
@@ -42,20 +44,14 @@ import kotlinx.coroutines.launch
 
 /**
  * Main Activity - Entry point for the app.
- *
- * Now includes:
- * - PHASE 7: Analytics (overview, exercise analytics)
- * - PHASE 8: Body Metrics (weight tracking, measurements)
  */
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Database
         val database = GymDatabase.getInstance(this)
 
-        // Repositories
         val workoutSessionRepository = WorkoutSessionRepository(
             workoutSessionDao = database.workoutSessionDao(),
             sessionExerciseDao = database.sessionExerciseDao(),
@@ -71,19 +67,16 @@ class MainActivity : ComponentActivity() {
             database.exerciseDao()
         )
 
-        // NEW: Analytics Repository
         val analyticsRepository = AnalyticsRepository(
             workoutSessionDao = database.workoutSessionDao(),
             sessionExerciseDao = database.sessionExerciseDao(),
             setLogDao = database.setLogDao()
         )
 
-        // NEW: Body Metrics Repository
         val bodyMetricsRepository = BodyMetricsRepository(
             bodyMetricDao = database.bodyMetricDao()
         )
 
-        // Seed exercises on first launch
         lifecycleScope.launch {
             if (exerciseRepository.needsSeedData()) {
                 exerciseRepository.insertSeedExercises()
@@ -92,8 +85,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             NeoKratosTheme(dynamicColor = false) {
-                // Navigation controllers
-                val navController = rememberNavController()
+                // Main navigation controller
+                val mainNavController = rememberNavController()
+
+                // State for selected IDs
                 var selectedWorkoutId by remember { mutableStateOf<Long?>(null) }
                 var selectedTemplateId by remember { mutableStateOf<Long?>(null) }
 
@@ -124,7 +119,6 @@ class MainActivity : ComponentActivity() {
                     )
                 )
 
-                // NEW: Analytics ViewModels
                 val analyticsViewModel: AnalyticsViewModel = viewModel(
                     factory = AnalyticsViewModelFactory(analyticsRepository)
                 )
@@ -133,16 +127,14 @@ class MainActivity : ComponentActivity() {
                     ExerciseAnalyticsViewModel(analyticsRepository)
                 }
 
-                // NEW: Body Metrics ViewModel
                 val bodyMetricsViewModel: BodyMetricsViewModel = viewModel(
                     factory = BodyMetricsViewModelFactory(bodyMetricsRepository)
                 )
 
                 NavHost(
-                    navController = navController,
+                    navController = mainNavController,
                     startDestination = "home"
                 ) {
-                    // Home with bottom navigation
                     composable("home") {
                         HomeScreen(
                             workoutScreen = {
@@ -155,11 +147,12 @@ class MainActivity : ComponentActivity() {
                                 TemplateListScreen(
                                     viewModel = templateViewModel,
                                     onStartWorkout = { templateId ->
+                                        // Start workout and navigate to workout tab
                                         activeWorkoutViewModel.startWorkout(templateId = templateId)
                                     },
                                     onEditTemplate = { templateId ->
                                         selectedTemplateId = templateId
-                                        navController.navigate("template_edit")
+                                        mainNavController.navigate("template_edit")
                                     }
                                 )
                             },
@@ -168,56 +161,52 @@ class MainActivity : ComponentActivity() {
                                     viewModel = historyViewModel,
                                     onWorkoutClick = { workoutId ->
                                         selectedWorkoutId = workoutId
-                                        navController.navigate("workout_detail")
+                                        mainNavController.navigate("workout_detail")
                                     }
                                 )
                             },
                             exercisesScreen = {
                                 ExerciseLibraryScreen(viewModel = exerciseLibraryViewModel)
                             },
-                            // NEW: Analytics screen
                             analyticsScreen = {
                                 AnalyticsScreen(
                                     viewModel = analyticsViewModel,
                                     onNavigateToExerciseAnalytics = {
-                                        navController.navigate("exercise_analytics")
+                                        mainNavController.navigate("exercise_analytics")
                                     }
                                 )
                             },
-                            // NEW: Body Metrics screen
                             bodyMetricsScreen = {
                                 BodyMetricsScreen(viewModel = bodyMetricsViewModel)
-                            }
+                            },
+                            activeWorkoutViewModel = activeWorkoutViewModel
                         )
                     }
 
-                    // Workout detail
                     composable("workout_detail") {
                         selectedWorkoutId?.let { workoutId ->
                             WorkoutDetailScreen(
                                 sessionId = workoutId,
                                 viewModel = historyViewModel,
-                                onBack = { navController.popBackStack() }
+                                onBack = { mainNavController.popBackStack() }
                             )
                         }
                     }
 
-                    // Template edit
                     composable("template_edit") {
                         selectedTemplateId?.let { templateId ->
                             com.example.neokratos.ui.screen.templates.TemplateEditScreen(
                                 templateId = templateId,
                                 viewModel = templateEditViewModel,
-                                onBack = { navController.popBackStack() }
+                                onBack = { mainNavController.popBackStack() }
                             )
                         }
                     }
 
-                    // NEW: Exercise Analytics
                     composable("exercise_analytics") {
                         ExerciseAnalyticsScreen(
                             viewModel = exerciseAnalyticsViewModel,
-                            onBack = { navController.popBackStack() }
+                            onBack = { mainNavController.popBackStack() }
                         )
                     }
                 }

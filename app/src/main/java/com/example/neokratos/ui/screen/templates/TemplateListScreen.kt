@@ -16,8 +16,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.neokratos.data.local.entity.TemplateExerciseEntity
 import com.example.neokratos.data.local.entity.getSetsRepsDisplay
+import com.example.neokratos.data.local.relations.TemplateWithExerciseDetails
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,8 +30,10 @@ fun TemplateListScreen(
     val templates by viewModel.templatesWithDetails.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
 
+    // FIX: Create coroutine scope for Composable
+    val scope = rememberCoroutineScope()
+
     Scaffold(
-        // Nessuna TopAppBar - rimuoviamo il titolo
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Create template")
@@ -70,8 +73,13 @@ fun TemplateListScreen(
     if (showCreateDialog) {
         CreateTemplateDialog(
             onConfirm = { name ->
-                viewModel.createTemplate(name)
-                showCreateDialog = false
+                // FIX 1: Create template and navigate to edit
+                // Use the scope defined at the top of the Composable
+                scope.launch {
+                    val templateId = viewModel.createTemplateAndGetId(name)
+                    showCreateDialog = false
+                    onEditTemplate(templateId)
+                }
             },
             onDismiss = { showCreateDialog = false }
         )
@@ -110,7 +118,7 @@ private fun EmptyTemplatesState(
 
 @Composable
 private fun TemplateCard(
-    templateWithDetails: com.example.neokratos.data.local.relations.TemplateWithExerciseDetails,
+    templateWithDetails: TemplateWithExerciseDetails,
     onStartWorkout: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -188,7 +196,6 @@ private fun TemplateCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Bottone Start Workout più prominente
                 Button(
                     onClick = onStartWorkout,
                     modifier = Modifier.weight(1f)
