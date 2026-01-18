@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.example.neokratos.data.local.entity.SetLogEntity
 import com.example.neokratos.data.local.relations.SessionExerciseWithDetails
 import com.example.neokratos.data.local.entity.getVolume
+import java.util.Locale
 
 /**
  * Exercise Card - GYM BRO EDITION
@@ -30,6 +31,7 @@ fun ExerciseCard(
     onAddSet: (weight: Float, reps: Int, rpe: Float?, restSeconds: Int) -> Unit,
     onRemove: () -> Unit,
     onUpdateSet: (SetLogEntity) -> Unit = {},
+    onStartTimer: (restSeconds: Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddSetDialog by remember { mutableStateOf(false) }
@@ -162,7 +164,11 @@ fun ExerciseCard(
         EditSetDialog(
             set = setToEdit!!,
             onConfirm = { updatedSet ->
+                val wasPlaceholder = !setToEdit!!.completed
                 onUpdateSet(updatedSet)
+                if (wasPlaceholder && updatedSet.completed) {
+                    updatedSet.restSeconds?.let { onStartTimer(it) }
+                }
                 setToEdit = null
             },
             onDismiss = { setToEdit = null }
@@ -240,7 +246,7 @@ private fun SetRow(
                 // RPE if present
                 set.rpe?.let { rpe ->
                     Text(
-                        text = "RPE ${String.format("%.1f", rpe)}",
+                        text = "RPE ${String.format(Locale.getDefault(), "%.1f", rpe)}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -342,7 +348,7 @@ private fun AddSetDialog(
                     )
                     Slider(
                         value = rpe.toFloatOrNull() ?: 0f,
-                        onValueChange = { rpe = if (it > 0) String.format("%.1f", it) else "" },
+                        onValueChange = { rpe = if (it > 0) String.format(Locale.getDefault(), "%.1f", it) else "" },
                         valueRange = 0f..10f,
                         steps = 19
                     )
@@ -427,7 +433,7 @@ private fun EditSetDialog(
                     Text("RPE")
                     Slider(
                         value = rpe.toFloatOrNull() ?: 0f,
-                        onValueChange = { rpe = if (it > 0) String.format("%.1f", it) else "" },
+                        onValueChange = { rpe = if (it > 0) String.format(Locale.getDefault(), "%.1f", it) else "" },
                         valueRange = 0f..10f,
                         steps = 19
                     )

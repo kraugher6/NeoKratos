@@ -4,11 +4,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -258,7 +259,7 @@ private fun CurrentWeightCard(
                     }
                 }
 
-                Divider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f))
 
                 // Stats Row
                 Row(
@@ -290,7 +291,7 @@ private fun CurrentWeightCard(
 private fun TrendIndicator(trend: WeightTrend) {
     val (icon, color, text) = when (trend) {
         WeightTrend.GAINING -> Triple(
-            Icons.Default.TrendingUp,
+            Icons.AutoMirrored.Filled.TrendingUp,
             MaterialTheme.colorScheme.error,
             "Gaining"
         )
@@ -300,7 +301,7 @@ private fun TrendIndicator(trend: WeightTrend) {
             "Losing"
         )
         WeightTrend.STABLE -> Triple(
-            Icons.Default.TrendingUp,
+            Icons.AutoMirrored.Filled.TrendingUp,
             MaterialTheme.colorScheme.onPrimaryContainer,
             "Stable"
         )

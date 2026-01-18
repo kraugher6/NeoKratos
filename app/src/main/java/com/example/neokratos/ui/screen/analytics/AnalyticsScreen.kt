@@ -3,8 +3,9 @@ package com.example.neokratos.ui.screen.analytics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +47,7 @@ fun AnalyticsScreen(
                 title = { Text("Analytics") },
                 actions = {
                     IconButton(onClick = onNavigateToExerciseAnalytics) {
-                        Icon(Icons.Default.TrendingUp, contentDescription = "Exercise Analytics")
+                        Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = "Exercise Analytics")
                     }
                 }
             )
@@ -112,7 +113,7 @@ fun AnalyticsScreen(
                     onClick = onNavigateToExerciseAnalytics,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.TrendingUp, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("View Exercise Analytics")
                 }
@@ -144,7 +145,7 @@ private fun LifetimeStatsCard(
                     icon = "🏋️"
                 )
 
-                Divider()
+                HorizontalDivider()
 
                 // Total Volume
                 StatRow(
@@ -153,7 +154,7 @@ private fun LifetimeStatsCard(
                     icon = "💪"
                 )
 
-                Divider()
+                HorizontalDivider()
 
                 // Average Duration
                 StatRow(
@@ -252,15 +253,15 @@ private fun FrequencyStatsCard(
                     icon = "📊"
                 )
 
-                Divider()
+                HorizontalDivider()
 
                 StatRow(
                     label = "Average per Week",
-                    value = String.format("%.1f", stats.averagePerWeek),
+                    value = String.format(Locale.getDefault(), "%.1f", stats.averagePerWeek),
                     icon = "📅"
                 )
 
-                Divider()
+                HorizontalDivider()
 
                 // Date range display
                 Row(
@@ -396,7 +397,7 @@ private fun StatRow(
  * Example: 15000.0 → "15,000"
  */
 private fun formatVolume(volume: Float): String {
-    return String.format("%,d", volume.toInt())
+    return String.format(Locale.getDefault(), "%,d", volume.toInt())
 }
 
 /**

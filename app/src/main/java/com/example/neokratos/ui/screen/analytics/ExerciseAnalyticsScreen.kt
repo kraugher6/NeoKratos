@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -211,7 +212,7 @@ private fun PersonalRecordCard(
 
                 if (pr.rpe != null) {
                     Text(
-                        text = "RPE: ${String.format("%.1f", pr.rpe)}",
+                        text = "RPE: ${String.format(Locale.getDefault(), "%.1f", pr.rpe)}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -266,7 +267,7 @@ private fun ProgressGraphCard(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "${point.totalSets} sets • Avg RPE ${String.format("%.1f", point.avgRPE)}",
+                                text = "${point.totalSets} sets • Avg RPE ${String.format(Locale.getDefault(), "%.1f", point.avgRPE)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -285,7 +286,7 @@ private fun ProgressGraphCard(
                             )
                         }
                     }
-                    Divider()
+                    HorizontalDivider()
                 }
             }
 
@@ -330,7 +331,7 @@ private fun TopSetCard(
                     )
                     if (set.rpe != null) {
                         Text(
-                            text = "• RPE ${String.format("%.1f", set.rpe)}",
+                            text = "• RPE ${String.format(Locale.getDefault(), "%.1f", set.rpe)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

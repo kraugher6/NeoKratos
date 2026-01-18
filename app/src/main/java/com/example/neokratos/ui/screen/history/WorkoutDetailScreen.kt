@@ -141,7 +141,7 @@ private fun WorkoutSummaryCard(workout: SessionComplete) {
             }
 
             workout.session.notes?.let { notes ->
-                Divider()
+                HorizontalDivider()
                 Column {
                     Text(
                         text = "Notes",
@@ -198,7 +198,7 @@ private fun ExerciseDetailCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Divider()
+            HorizontalDivider()
 
             // Sets table header
             Row(
@@ -231,7 +231,7 @@ private fun ExerciseDetailCard(
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             // Exercise summary
             Row(

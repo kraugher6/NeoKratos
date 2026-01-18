@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 /**
  * Card showing rest timer between sets.
@@ -90,7 +91,7 @@ private fun RunningTimerContent(
     onSkip: () -> Unit
 ) {
     // Local state for countdown - updated every second
-    var currentSeconds by remember(remainingSeconds) { mutableStateOf(remainingSeconds) }
+    var currentSeconds by remember(remainingSeconds) { mutableIntStateOf(remainingSeconds) }
 
     /**
      * LaunchedEffect with key 'currentSeconds':
@@ -259,5 +260,5 @@ private fun CompletedTimerContent(
 private fun formatTime(seconds: Int): String {
     val minutes = seconds / 60
     val secs = seconds % 60
-    return String.format("%d:%02d", minutes, secs)
+    return String.format(Locale.getDefault(),"%d:%02d", minutes, secs)
 }
