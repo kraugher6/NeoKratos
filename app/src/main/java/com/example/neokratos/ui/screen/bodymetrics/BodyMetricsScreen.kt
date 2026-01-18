@@ -8,7 +8,6 @@ import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
@@ -23,8 +22,7 @@ import com.example.neokratos.data.local.entity.getDisplayValue
 import com.example.neokratos.data.local.entity.getFormattedDate
 import com.example.neokratos.data.repository.BodyMetricTimeRange
 import com.example.neokratos.data.repository.WeightTrend
-import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Locale
 
 /**
  * Body Metrics screen.
@@ -55,7 +53,7 @@ fun BodyMetricsScreen(
 
     var showAddWeightDialog by remember { mutableStateOf(false) }
     var showAddMeasurementDialog by remember { mutableStateOf(false) }
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -244,7 +242,7 @@ private fun CurrentWeightCard(
                         )
                         Text(
                             text = if (weightStats.currentWeight != null) {
-                                "${String.format("%.1f", weightStats.currentWeight)} kg"
+                                "${String.format(Locale.getDefault(), "%.1f", weightStats.currentWeight)} kg"
                             } else {
                                 "No data"
                             },
@@ -269,11 +267,11 @@ private fun CurrentWeightCard(
                 ) {
                     StatItem(
                         label = "Total Change",
-                        value = "${if (weightStats.totalChange >= 0) "+" else ""}${String.format("%.1f", weightStats.totalChange)} kg"
+                        value = "${if (weightStats.totalChange >= 0) "+" else ""}${String.format(Locale.getDefault(), "%.1f", weightStats.totalChange)} kg"
                     )
                     StatItem(
                         label = "7-Day Trend",
-                        value = "${if (weightStats.sevenDayTrend >= 0) "+" else ""}${String.format("%.1f", weightStats.sevenDayTrend)} kg"
+                        value = "${if (weightStats.sevenDayTrend >= 0) "+" else ""}${String.format(Locale.getDefault(), "%.1f", weightStats.sevenDayTrend)} kg"
                     )
                     StatItem(
                         label = "Entries",

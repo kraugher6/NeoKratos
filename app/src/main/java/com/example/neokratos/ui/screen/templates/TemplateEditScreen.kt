@@ -1,12 +1,9 @@
 package com.example.neokratos.ui.screen.templates
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -281,7 +278,7 @@ private fun AdvancedEditExerciseDialog(
     onConfirm: (TemplateExerciseEntity) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selectedMode by remember { mutableStateOf(0) }
+    var selectedMode by remember { mutableIntStateOf(0) }
 
     var sets by remember { mutableStateOf(exercise.targetSets.toString()) }
     var repsMin by remember { mutableStateOf(exercise.targetRepsMin.toString()) }
@@ -300,10 +297,10 @@ private fun AdvancedEditExerciseDialog(
     }
 
     var restMinutes by remember {
-        mutableStateOf((exercise.restSeconds ?: 90) / 60)
+        mutableIntStateOf((exercise.restSeconds ?: 90) / 60)
     }
     var restSeconds by remember {
-        mutableStateOf((exercise.restSeconds ?: 90) % 60)
+        mutableIntStateOf((exercise.restSeconds ?: 90) % 60)
     }
     var notes by remember { mutableStateOf(exercise.notes ?: "") }
 

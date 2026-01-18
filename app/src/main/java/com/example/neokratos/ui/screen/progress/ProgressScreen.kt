@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.example.neokratos.ui.screen.analytics.AnalyticsScreen
 import com.example.neokratos.ui.screen.analytics.AnalyticsViewModel
 import com.example.neokratos.ui.screen.bodymetrics.BodyMetricsScreen
@@ -29,7 +28,7 @@ fun ProgressScreen(
     onWorkoutClick: (Long) -> Unit,
     onNavigateToExerciseAnalytics: () -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {

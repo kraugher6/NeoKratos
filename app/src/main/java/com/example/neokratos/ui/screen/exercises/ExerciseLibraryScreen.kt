@@ -29,7 +29,6 @@ fun ExerciseLibraryScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
 
-    // Nessuna TopAppBar - rimuoviamo il titolo
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {

@@ -12,7 +12,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.neokratos.data.local.entity.getDateDisplay
-import com.example.neokratos.data.local.entity.getDisplayName
 import com.example.neokratos.data.local.entity.getDurationDisplay
 import com.example.neokratos.data.local.relations.SessionComplete
 import com.example.neokratos.data.local.relations.getTotalExercises
