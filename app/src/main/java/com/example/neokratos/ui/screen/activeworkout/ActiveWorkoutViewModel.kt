@@ -249,6 +249,10 @@ class ActiveWorkoutViewModel(
         viewModelScope.launch {
             try {
                 workoutSessionRepository.updateSet(setLog)
+
+                if (setLog.completed && setLog.restSeconds!! > 0) {
+                    startRestTimer(setLog.restSeconds)
+                }
             } catch (e: Exception) {
                 _uiState.value = WorkoutUiState.Error(
                     e.message ?: "Failed to update set"

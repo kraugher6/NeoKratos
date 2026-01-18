@@ -31,7 +31,7 @@ fun ExerciseCard(
 ) {
     var showAddSetDialog by remember { mutableStateOf(false) }
     var showRemoveDialog by remember { mutableStateOf(false) }
-    var setToEdit by remember { mutableStateOf<SetLogEntity?>(null) }
+    var setToComplete by remember { mutableStateOf<SetLogEntity?>(null) }
 
     val exercise = exerciseWithDetails.exercise
     val sets = exerciseWithDetails.sets
@@ -122,7 +122,7 @@ fun ExerciseCard(
                 sets.forEach { set ->
                     SetRow(
                         set = set,
-                        onClick = { setToEdit = set }
+                        onClick = { setToComplete = set }
                     )
                 }
             }
@@ -159,10 +159,12 @@ fun ExerciseCard(
         }
     }
 
+    // Add new set dialog
     if (showAddSetDialog) {
-        AddSetDialog(
+        LogSetDialog(
             previousSet = sets.lastOrNull { it.completed },
             defaultRestSeconds = defaultRestSeconds,
+            isNewSet = true,
             onConfirm = { weight, reps, rpe ->
                 onAddSet(weight, reps, rpe, defaultRestSeconds)
                 showAddSetDialog = false
@@ -171,29 +173,35 @@ fun ExerciseCard(
         )
     }
 
-    if (setToEdit != null) {
-        val currentSet = setToEdit!!
-        EditSetDialog(
-            set = currentSet,
-            onConfirm = { editedSet ->  // ← Riceve SetLogEntity completo
-                val wasPlaceholder = !currentSet.completed
+    // Complete/Edit set dialog
+    if (setToComplete != null) {
+        val currentSet = setToComplete!!
+        val isPlaceholder = !currentSet.completed
 
-                if (wasPlaceholder) {
-                    // Placeholder being completed: extract values and use "Add Set" flow
-                    onAddSet(
-                        editedSet.weight,
-                        editedSet.reps,
-                        editedSet.rpe,
-                        currentSet.restSeconds ?: defaultRestSeconds
-                    )
-                } else {
-                    // Already completed set: pass the updated entity
-                    onUpdateSet(editedSet)
-                }
-
-                setToEdit = null
+        LogSetDialog(
+            previousSet = if (isPlaceholder) {
+                // For placeholders, show the last completed set
+                sets.lastOrNull { it.completed && it.setNumber < currentSet.setNumber }
+            } else {
+                // For editing completed sets, don't show previous
+                null
             },
-            onDismiss = { setToEdit = null }
+            defaultRestSeconds = currentSet.restSeconds ?: defaultRestSeconds,
+            currentSet = currentSet,
+            isNewSet = false,
+            onConfirm = { weight, reps, rpe ->
+                // Always UPDATE the existing set
+                onUpdateSet(
+                    currentSet.copy(
+                        weight = weight,
+                        reps = reps,
+                        rpe = rpe,
+                        completed = true
+                    )
+                )
+                setToComplete = null
+            },
+            onDismiss = { setToComplete = null }
         )
     }
 
@@ -252,7 +260,7 @@ private fun SetRow(
             modifier = Modifier.width(60.dp)
         )
         Text(
-            text = if (set.reps > 0) "${set.reps}" else "-",
+            text = if (set.reps > 0 && set.completed) "${set.reps}" else if (!set.completed) "${set.reps}*" else "-",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.width(45.dp)
         )
@@ -271,130 +279,46 @@ private fun SetRow(
     }
 }
 
+/**
+ * Universal dialog for logging a set.
+ * Used for BOTH:
+ * - Adding new sets
+ * - Completing placeholder sets from template
+ * - Editing completed sets
+ */
 @Composable
-private fun EditSetDialog(
-    set: SetLogEntity,
-    onConfirm: (SetLogEntity) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var weight by remember { mutableStateOf(if (set.weight > 0) set.weight.toString() else "") }
-    var reps by remember { mutableStateOf(if (set.reps > 0) set.reps.toString() else "") }
-    var rpe by remember { mutableStateOf(set.rpe?.toString() ?: "") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit Set ${set.setNumber}") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = weight,
-                    onValueChange = { newValue ->
-                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d*$"))) {
-                            weight = newValue
-                        }
-                    },
-                    label = { Text("Weight (kg)") },
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = reps,
-                    onValueChange = { newValue ->
-                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d+$"))) {
-                            reps = newValue
-                        }
-                    },
-                    label = { Text("Reps") },
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = rpe,
-                    onValueChange = { newValue ->
-                        if (newValue.isEmpty() || newValue.matches(Regex("^([0-9]|10)(\\.\\d?)?$"))) {
-                            rpe = newValue
-                        }
-                    },
-                    label = { Text("RPE (optional)") },
-                    placeholder = { Text("1-10") },
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Show rest timer info
-                set.restSeconds?.let { rest ->
-                    val minutes = rest / 60
-                    val seconds = rest % 60
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    ) {
-                        Text(
-                            text = "Rest timer: ${minutes}:${seconds.toString().padStart(2, '0')}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(8.dp)
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val w = weight.toFloatOrNull() ?: 0f
-                    val r = reps.toIntOrNull() ?: 0
-                    val rpeValue = rpe.toFloatOrNull()
-
-                    if (w > 0 && r > 0) {
-                        onConfirm(
-                            set.copy(
-                                weight = w,
-                                reps = r,
-                                rpe = rpeValue,
-                                completed = true // Mark as completed
-                            )
-                        )
-                    }
-                }
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
-private fun AddSetDialog(
+private fun LogSetDialog(
     previousSet: SetLogEntity?,
     defaultRestSeconds: Int,
+    currentSet: SetLogEntity? = null,
+    isNewSet: Boolean,
     onConfirm: (weight: Float, reps: Int, rpe: Float?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var weight by remember { mutableStateOf(previousSet?.weight?.toString() ?: "") }
-    var reps by remember { mutableStateOf(previousSet?.reps?.toString() ?: "") }
-    var rpe by remember { mutableStateOf(previousSet?.rpe?.toString() ?: "") }
+    // Pre-fill from current set if editing, otherwise from previous
+    val initialWeight = currentSet?.takeIf { it.weight > 0 }?.weight
+        ?: previousSet?.weight
+    val initialReps = currentSet?.takeIf { it.completed }?.reps
+        ?: currentSet?.reps // Use target reps from placeholder
+        ?: previousSet?.reps
+    val initialRpe = currentSet?.rpe ?: previousSet?.rpe
+
+    var weight by remember { mutableStateOf(initialWeight?.toString() ?: "") }
+    var reps by remember { mutableStateOf(initialReps?.toString() ?: "") }
+    var rpe by remember { mutableStateOf(initialRpe?.toString() ?: "") }
+
+    val title = when {
+        currentSet != null && !currentSet.completed -> "Complete Set ${currentSet.setNumber}"
+        currentSet != null -> "Edit Set ${currentSet.setNumber}"
+        else -> "Add Set"
+    }
+
+    val showPreviousSet = previousSet != null && (isNewSet || currentSet?.completed == false)
+    val showTimerInfo = isNewSet || currentSet?.completed == false
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Set") },
+        title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -443,8 +367,8 @@ private fun AddSetDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Previous set info
-                if (previousSet != null) {
+                // Show previous set info
+                if (showPreviousSet) {
                     HorizontalDivider()
                     Text(
                         text = "Previous set",
@@ -452,47 +376,49 @@ private fun AddSetDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${previousSet.weight}kg × ${previousSet.reps} @ RPE ${previousSet.rpe ?: "-"}",
+                        text = "${previousSet!!.weight}kg × ${previousSet.reps} @ RPE ${previousSet.rpe ?: "-"}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                // Rest timer info
-                HorizontalDivider()
-                val minutes = defaultRestSeconds / 60
-                val seconds = defaultRestSeconds % 60
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                // Show rest timer info
+                if (showTimerInfo) {
+                    HorizontalDivider()
+                    val minutes = defaultRestSeconds / 60
+                    val seconds = defaultRestSeconds % 60
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     ) {
-                        Column {
-                            Text(
-                                text = "Rest timer will start",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                text = "${minutes}:${seconds.toString().padStart(2, '0')}",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Rest timer will start",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "${minutes}:${seconds.toString().padStart(2, '0')}",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(32.dp)
                             )
                         }
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(32.dp)
-                        )
                     }
                 }
             }
@@ -507,7 +433,7 @@ private fun AddSetDialog(
                     onConfirm(w, r, rpeValue)
                 }
             ) {
-                Text("Save & Start Timer")
+                Text(if (showTimerInfo) "Save & Start Timer" else "Save")
             }
         },
         dismissButton = {
