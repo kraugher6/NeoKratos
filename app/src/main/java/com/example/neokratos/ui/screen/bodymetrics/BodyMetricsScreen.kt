@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -296,7 +297,7 @@ private fun TrendIndicator(trend: WeightTrend) {
             "Gaining"
         )
         WeightTrend.LOSING -> Triple(
-            Icons.Default.TrendingDown,
+            Icons.AutoMirrored.Filled.TrendingDown,
             MaterialTheme.colorScheme.tertiary,
             "Losing"
         )

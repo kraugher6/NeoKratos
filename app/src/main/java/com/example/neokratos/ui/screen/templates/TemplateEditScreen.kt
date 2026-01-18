@@ -455,7 +455,7 @@ private fun AdvancedEditExerciseDialog(
                 }
 
                 item {
-                    Divider()
+                    HorizontalDivider()
                     Text(
                         text = "Rest Time",
                         style = MaterialTheme.typography.titleSmall,

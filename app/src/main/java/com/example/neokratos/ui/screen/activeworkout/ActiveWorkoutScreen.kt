@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,7 +19,8 @@ import com.example.neokratos.data.local.relations.SessionComplete
 import com.example.neokratos.data.local.relations.getTotalExercises
 import com.example.neokratos.data.local.relations.getTotalSets
 import com.example.neokratos.data.local.relations.getTotalVolume
-import java.util.Locale
+import com.example.neokratos.ui.screen.activeworkout.RestTimerState
+import com.example.neokratos.ui.screen.activeworkout.WorkoutUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,12 +39,14 @@ fun ActiveWorkoutScreen(
 
     Scaffold(
         topBar = {
+            // Show TopAppBar only if there's an active workout
             if (activeWorkout != null) {
                 TopAppBar(
                     title = {
                         Text(activeWorkout?.session?.getDisplayName() ?: "")
                     },
                     actions = {
+                        // X visible only with active workout
                         IconButton(onClick = { showCancelDialog = true }) {
                             Icon(Icons.Default.Close, contentDescription = "Cancel workout")
                         }
@@ -103,9 +105,6 @@ fun ActiveWorkoutScreen(
                         onRemoveExercise = { viewModel.removeExercise(it) },
                         onUpdateSet = { updatedSet ->
                             viewModel.updateSet(updatedSet)
-                        },
-                        onStartTimer = { restSeconds ->
-                            viewModel.startTimerManually(restSeconds)
                         },
                         modifier = Modifier
                             .fillMaxSize()
@@ -236,13 +235,13 @@ private fun RestTimerOverlay(
                 modifier = Modifier.size(80.dp)
             ) {
                 CircularProgressIndicator(
-                    progress = { progress },
+                    progress = progress,
                     modifier = Modifier.fillMaxSize(),
                     strokeWidth = 8.dp,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = String.format(Locale.getDefault(), "%d:%02d", minutes, seconds),
+                    text = String.format("%d:%02d", minutes, seconds),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -316,7 +315,6 @@ private fun ActiveWorkoutContent(
     onAddSet: (sessionExerciseId: Long, weight: Float, reps: Int, rpe: Float?, restSeconds: Int) -> Unit,
     onRemoveExercise: (Long) -> Unit,
     onUpdateSet: (SetLogEntity) -> Unit,
-    onStartTimer: (restSeconds: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -353,8 +351,7 @@ private fun ActiveWorkoutContent(
                         onRemove = { onRemoveExercise(exerciseWithDetails.sessionExercise.id) },
                         onUpdateSet = { updatedSet ->
                             onUpdateSet(updatedSet)
-                        },
-                        onStartTimer = onStartTimer
+                        }
                     )
                 }
             }

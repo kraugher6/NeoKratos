@@ -84,7 +84,7 @@ class ActiveWorkoutViewModel(
 
                 workoutSessionRepository.completeWorkout(session.session.id)
 
-                // Cancel timer if running
+                // FIX: Cancel timer and reset state
                 cancelTimer()
                 _restTimerState.value = RestTimerState.Idle
 
@@ -105,7 +105,7 @@ class ActiveWorkoutViewModel(
 
                 workoutSessionRepository.cancelWorkout(session.session.id)
 
-                // Cancel timer if running
+                // FIX: Cancel timer and reset state
                 cancelTimer()
                 _restTimerState.value = RestTimerState.Idle
 
@@ -270,16 +270,6 @@ class ActiveWorkoutViewModel(
     }
 
     // ===== REST TIMER - IMPLEMENTATION =====
-
-    /**
-     * Start rest timer manually.
-     *
-     * FIX: Used when editing placeholder sets from templates.
-     * Public method to allow UI to trigger timer start.
-     */
-    fun startTimerManually(seconds: Int) {
-        startRestTimer(seconds)
-    }
 
     /**
      * Start rest timer with coroutine-based countdown.
