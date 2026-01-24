@@ -1,15 +1,25 @@
 package com.example.neokratos.ui.screen.activeworkout
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -17,12 +27,23 @@ import com.example.neokratos.data.local.entity.SetLogEntity
 import com.example.neokratos.data.local.entity.getDisplayName
 import com.example.neokratos.data.local.entity.getDurationDisplay
 import com.example.neokratos.data.local.relations.SessionComplete
+import com.example.neokratos.data.local.relations.SessionExerciseWithDetails
 import com.example.neokratos.data.local.relations.getTotalExercises
 import com.example.neokratos.data.local.relations.getTotalSets
 import com.example.neokratos.data.local.relations.getTotalVolume
+import kotlinx.coroutines.launch
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Active Workout Screen - SWIPEABLE CARDS LAYOUT
+ *
+ * Features:
+ * - Horizontal pager with swipe between exercises
+ * - Interactive progress bar at top
+ * - Smooth animations
+ * - Rest timer overlay
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ActiveWorkoutScreen(
     viewModel: ActiveWorkoutViewModel,
@@ -37,21 +58,62 @@ fun ActiveWorkoutScreen(
     var showCompleteDialog by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
 
+    // Pager state for horizontal swiping
+    val pagerState = rememberPagerState(pageCount = {
+        activeWorkout?.exercisesWithDetails?.size ?: 0
+    })
+    val scope = rememberCoroutineScope()
+
+    // Sync pager position with selected exercise
+    LaunchedEffect(selectedExerciseId, activeWorkout) {
+        if (selectedExerciseId != null && activeWorkout != null) {
+            val index = activeWorkout!!.exercisesWithDetails
+                .indexOfFirst { it.sessionExercise.id == selectedExerciseId }
+            if (index >= 0 && index != pagerState.currentPage) {
+                pagerState.animateScrollToPage(index)
+            }
+        }
+    }
+
+    // Update selected exercise when pager changes
+    LaunchedEffect(pagerState.currentPage, activeWorkout) {
+        if (activeWorkout != null && activeWorkout!!.exercisesWithDetails.isNotEmpty()) {
+            val currentExercise = activeWorkout!!.exercisesWithDetails
+                .getOrNull(pagerState.currentPage)
+            currentExercise?.let {
+                viewModel.selectExercise(it.sessionExercise.id)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
-            // Show TopAppBar only if there's an active workout
             if (activeWorkout != null) {
-                TopAppBar(
-                    title = {
-                        Text(activeWorkout?.session?.getDisplayName() ?: "")
-                    },
-                    actions = {
-                        // X visible only with active workout
-                        IconButton(onClick = { showCancelDialog = true }) {
-                            Icon(Icons.Default.Close, contentDescription = "Cancel workout")
+                Column {
+                    TopAppBar(
+                        title = {
+                            Text(activeWorkout?.session?.getDisplayName() ?: "")
+                        },
+                        actions = {
+                            IconButton(onClick = { showCancelDialog = true }) {
+                                Icon(Icons.Default.Close, contentDescription = "Cancel workout")
+                            }
                         }
+                    )
+
+                    // PROGRESS BAR - Interactive
+                    if (activeWorkout!!.exercisesWithDetails.isNotEmpty()) {
+                        ExerciseProgressBar(
+                            exercises = activeWorkout!!.exercisesWithDetails,
+                            currentIndex = pagerState.currentPage,
+                            onExerciseClick = { index ->
+                                scope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            }
+                        )
                     }
-                )
+                }
             }
         },
         floatingActionButton = {
@@ -60,6 +122,7 @@ fun ActiveWorkoutScreen(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Complete button
                     FloatingActionButton(
                         onClick = { showCompleteDialog = true },
                         containerColor = MaterialTheme.colorScheme.primary
@@ -67,6 +130,7 @@ fun ActiveWorkoutScreen(
                         Icon(Icons.Default.Check, contentDescription = "Complete workout")
                     }
 
+                    // Add exercise button
                     ExtendedFloatingActionButton(
                         onClick = { showExercisePicker = true },
                         icon = { Icon(Icons.Default.Add, contentDescription = null) },
@@ -88,28 +152,64 @@ fun ActiveWorkoutScreen(
                     )
                 }
 
-                else -> {
-                    ActiveWorkoutContent(
-                        session = activeWorkout!!,
-                        selectedExerciseId = selectedExerciseId,
-                        onExerciseSelected = { viewModel.selectExercise(it) },
-                        onAddSet = { sessionExerciseId, weight, reps, rpe, restSeconds ->
-                            viewModel.logSetForExercise(
-                                sessionExerciseId = sessionExerciseId,
-                                weight = weight,
-                                reps = reps,
-                                rpe = rpe,
-                                restSeconds = restSeconds
-                            )
-                        },
-                        onRemoveExercise = { viewModel.removeExercise(it) },
-                        onUpdateSet = { updatedSet ->
-                            viewModel.updateSet(updatedSet)
-                        },
+                activeWorkout!!.exercisesWithDetails.isEmpty() -> {
+                    EmptyExerciseListState(
+                        onAddExercise = { showExercisePicker = true },
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(padding)
                     )
+                }
+
+                else -> {
+                    // HORIZONTAL PAGER - Swipeable cards
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                    ) {
+                        // Workout summary at top
+                        WorkoutSummaryCompact(
+                            session = activeWorkout!!,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+
+                        // Swipeable exercise cards
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .weight(1f),
+                            pageSpacing = 16.dp,
+                            contentPadding = PaddingValues(horizontal = 16.dp)
+                        ) { page ->
+                            val exerciseWithDetails = activeWorkout!!.exercisesWithDetails[page]
+
+                            SwipeableExerciseCard(
+                                exerciseWithDetails = exerciseWithDetails,
+                                exerciseNumber = page + 1,
+                                totalExercises = activeWorkout!!.exercisesWithDetails.size,
+                                onAddSet = { weight, reps, rpe, restSeconds ->
+                                    viewModel.logSetForExercise(
+                                        sessionExerciseId = exerciseWithDetails.sessionExercise.id,
+                                        weight = weight,
+                                        reps = reps,
+                                        rpe = rpe,
+                                        restSeconds = restSeconds
+                                    )
+                                },
+                                onUpdateSet = { updatedSet ->
+                                    viewModel.updateSetAndStartTimer(updatedSet)
+                                },
+                                onRemoveExercise = {
+                                    viewModel.removeExercise(exerciseWithDetails.sessionExercise.id)
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
                 }
             }
 
@@ -152,6 +252,7 @@ fun ActiveWorkoutScreen(
         }
     }
 
+    // Dialogs
     if (showCompleteDialog) {
         CompleteWorkoutDialog(
             onConfirm = {
@@ -184,6 +285,299 @@ fun ActiveWorkoutScreen(
     }
 }
 
+/**
+ * Interactive progress bar showing all exercises.
+ * Tap on dot to jump to that exercise.
+ */
+@Composable
+private fun ExerciseProgressBar(
+    exercises: List<SessionExerciseWithDetails>,
+    currentIndex: Int,
+    onExerciseClick: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Progress text
+        Text(
+            text = "Exercise ${currentIndex + 1} of ${exercises.size}",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // Progress dots row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            exercises.forEachIndexed { index, exercise ->
+                ExerciseProgressDot(
+                    exerciseName = exercise.exercise.name,
+                    isActive = index == currentIndex,
+                    isCompleted = exercise.sets.any { it.completed },
+                    onClick = { onExerciseClick(index) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Single dot in progress bar.
+ * Shows exercise name on hover/tap.
+ */
+@Composable
+private fun ExerciseProgressDot(
+    exerciseName: String,
+    isActive: Boolean,
+    isCompleted: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = when {
+        isActive -> MaterialTheme.colorScheme.primary
+        isCompleted -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val height by animateFloatAsState(
+        targetValue = if (isActive) 8f else 4f,
+        label = "dot_height"
+    )
+
+    Box(
+        modifier = modifier
+            .height(height.dp)
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+    )
+}
+
+/**
+ * Compact workout summary - ONE line with key stats.
+ */
+@Composable
+private fun WorkoutSummaryCompact(
+    session: SessionComplete,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CompactStat(
+                icon = "⏱️",
+                value = session.session.getDurationDisplay()
+            )
+            CompactStat(
+                icon = "📊",
+                value = "${session.getTotalSets()}"
+            )
+            CompactStat(
+                icon = "💪",
+                value = "${session.getTotalVolume().toInt()}kg"
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactStat(
+    icon: String,
+    value: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = icon,
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+/**
+ * Empty state when no workout active.
+ */
+@Composable
+private fun EmptyWorkoutState(
+    onStartWorkout: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "💪",
+            style = MaterialTheme.typography.displayLarge
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "No Active Workout",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Black
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Start tracking your lifts",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onStartWorkout,
+            modifier = Modifier.fillMaxWidth(0.7f)
+        ) {
+            Text("Start Empty Workout")
+        }
+    }
+}
+
+/**
+ * Empty state when workout has no exercises.
+ */
+@Composable
+private fun EmptyExerciseListState(
+    onAddExercise: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "🏋️",
+            style = MaterialTheme.typography.displayLarge
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "No Exercises Yet",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Black
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Add exercises to start logging sets",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onAddExercise,
+            modifier = Modifier.fillMaxWidth(0.7f)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Add Exercise")
+        }
+    }
+}
+
+/**
+ * Complete workout dialog.
+ */
+@Composable
+private fun CompleteWorkoutDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Complete Workout?") },
+        text = { Text("Are you sure you want to finish this workout?") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Complete")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
+ * Cancel workout dialog.
+ */
+@Composable
+private fun CancelWorkoutDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cancel Workout?") },
+        text = { Text("All progress will be lost. Are you sure?") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Yes, Cancel", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("No, Continue")
+            }
+        }
+    )
+}
+
+/**
+ * Exercise picker dialog.
+ */
+@Composable
+private fun ExercisePickerDialog(
+    onExerciseSelected: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ExercisePickerDialogScreen(
+        onExerciseSelected = onExerciseSelected,
+        onDismiss = onDismiss
+    )
+}
+
+/**
+ * Rest timer overlay.
+ */
 @Composable
 private fun RestTimerOverlay(
     restTimerState: RestTimerState,
@@ -274,225 +668,4 @@ private fun RestTimerOverlay(
             }
         }
     }
-}
-
-@Composable
-private fun EmptyWorkoutState(
-    onStartWorkout: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "No Active Workout",
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Start a new workout to begin tracking",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(onClick = onStartWorkout) {
-            Text("Start Empty Workout")
-        }
-    }
-}
-
-@Composable
-private fun ActiveWorkoutContent(
-    session: SessionComplete,
-    selectedExerciseId: Long?,
-    onExerciseSelected: (Long) -> Unit,
-    onAddSet: (sessionExerciseId: Long, weight: Float, reps: Int, rpe: Float?, restSeconds: Int) -> Unit,
-    onRemoveExercise: (Long) -> Unit,
-    onUpdateSet: (SetLogEntity) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        WorkoutSummaryCard(
-            session = session,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        )
-
-        if (session.exercisesWithDetails.isEmpty()) {
-            EmptyExerciseList(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(
-                    items = session.exercisesWithDetails,
-                    key = { it.sessionExercise.id }
-                ) { exerciseWithDetails ->
-                    ExerciseCard(
-                        exerciseWithDetails = exerciseWithDetails,
-                        isSelected = exerciseWithDetails.sessionExercise.id == selectedExerciseId,
-                        onSelect = { onExerciseSelected(exerciseWithDetails.sessionExercise.id) },
-                        onAddSet = { weight, reps, rpe, restSeconds ->
-                            onAddSet(exerciseWithDetails.sessionExercise.id, weight, reps, rpe, restSeconds)
-                        },
-                        onRemove = { onRemoveExercise(exerciseWithDetails.sessionExercise.id) },
-                        onUpdateSet = { updatedSet ->
-                            onUpdateSet(updatedSet)
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyExerciseList(
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "No exercises yet",
-            style = MaterialTheme.typography.bodyLarge
-        )
-        Text(
-            text = "Tap the + button to add exercises",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun WorkoutSummaryCard(
-    session: SessionComplete,
-    modifier: Modifier = Modifier
-) {
-    Card(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = "Duration",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = session.session.getDurationDisplay(),
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Exercises",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "${session.getTotalExercises()}",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Sets",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "${session.getTotalSets()}",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "Volume",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "${session.getTotalVolume().toInt()} kg",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CompleteWorkoutDialog(
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Complete Workout?") },
-        text = { Text("Are you sure you want to finish this workout?") },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Complete")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
-private fun CancelWorkoutDialog(
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Cancel Workout?") },
-        text = { Text("All progress will be lost. Are you sure?") },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Yes, Cancel", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("No, Continue")
-            }
-        }
-    )
-}
-
-@Composable
-private fun ExercisePickerDialog(
-    onExerciseSelected: (Long) -> Unit,
-    onDismiss: () -> Unit
-) {
-    ExercisePickerDialogScreen(
-        onExerciseSelected = onExerciseSelected,
-        onDismiss = onDismiss
-    )
 }

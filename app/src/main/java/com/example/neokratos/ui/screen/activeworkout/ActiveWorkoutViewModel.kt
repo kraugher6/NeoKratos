@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel for Active Workout screen.
  *
- * FIXED: Automatic rest timer start after logging sets
+ * FIXED: Timer starts after both add and update operations
  */
 class ActiveWorkoutViewModel(
     private val workoutSessionRepository: WorkoutSessionRepository,
@@ -84,7 +84,7 @@ class ActiveWorkoutViewModel(
 
                 workoutSessionRepository.completeWorkout(session.session.id)
 
-                // FIX: Cancel timer and reset state
+                // Cancel timer and reset state
                 cancelTimer()
                 _restTimerState.value = RestTimerState.Idle
 
@@ -105,7 +105,7 @@ class ActiveWorkoutViewModel(
 
                 workoutSessionRepository.cancelWorkout(session.session.id)
 
-                // FIX: Cancel timer and reset state
+                // Cancel timer and reset state
                 cancelTimer()
                 _restTimerState.value = RestTimerState.Idle
 
@@ -197,7 +197,7 @@ class ActiveWorkoutViewModel(
                     restSeconds = restSeconds
                 )
 
-                // FIX: Start rest timer if restSeconds specified
+                // Start rest timer if restSeconds specified
                 restSeconds?.let {
                     startRestTimer(it)
                 }
@@ -212,8 +212,7 @@ class ActiveWorkoutViewModel(
 
     /**
      * Log a set for a specific exercise.
-     *
-     * FIX: Automatically starts rest timer after logging the set.
+     * Automatically starts rest timer after logging the set.
      */
     fun logSetForExercise(
         sessionExerciseId: Long,
@@ -233,7 +232,7 @@ class ActiveWorkoutViewModel(
                     restSeconds = restSeconds
                 )
 
-                // FIX: Automatically start rest timer with the restSeconds from the set
+                // Automatically start rest timer with the restSeconds from the set
                 // This happens AFTER the set is successfully logged
                 startRestTimer(restSeconds)
 
@@ -245,14 +244,37 @@ class ActiveWorkoutViewModel(
         }
     }
 
+    /**
+     * Update an existing set (without starting timer).
+     * Use this when editing a set that's already completed.
+     */
     fun updateSet(setLog: SetLogEntity) {
         viewModelScope.launch {
             try {
                 workoutSessionRepository.updateSet(setLog)
+            } catch (e: Exception) {
+                _uiState.value = WorkoutUiState.Error(
+                    e.message ?: "Failed to update set"
+                )
+            }
+        }
+    }
 
-                if (setLog.completed && setLog.restSeconds!! > 0) {
-                    startRestTimer(setLog.restSeconds)
+    /**
+     * NEW: Update set AND start rest timer.
+     * Use this when completing a placeholder set from template.
+     */
+    fun updateSetAndStartTimer(setLog: SetLogEntity) {
+        viewModelScope.launch {
+            try {
+                // Update the set in database
+                workoutSessionRepository.updateSet(setLog)
+
+                // Start rest timer if restSeconds specified
+                setLog.restSeconds?.let { restSeconds ->
+                    startRestTimer(restSeconds)
                 }
+
             } catch (e: Exception) {
                 _uiState.value = WorkoutUiState.Error(
                     e.message ?: "Failed to update set"
@@ -277,14 +299,7 @@ class ActiveWorkoutViewModel(
 
     /**
      * Start rest timer with coroutine-based countdown.
-     *
-     * FIX: Now called automatically after logging a set.
-     *
-     * Concept:
-     * - Launches coroutine in viewModelScope
-     * - Uses delay(1000L) for 1-second intervals
-     * - Updates state each second
-     * - Job stored for cancellation
+     * Called automatically after logging a set.
      */
     private fun startRestTimer(seconds: Int) {
         // Cancel existing timer if running
