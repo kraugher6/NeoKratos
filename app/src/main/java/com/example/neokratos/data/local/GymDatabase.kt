@@ -37,7 +37,7 @@ import com.example.neokratos.data.local.entity.WorkoutTemplateEntity
         SetLogEntity::class,
         BodyMetricEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 @TypeConverters(Converters::class) // AGGIUNTO: abilita i converters per Enum e List

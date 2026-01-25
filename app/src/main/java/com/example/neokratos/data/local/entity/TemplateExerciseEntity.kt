@@ -98,7 +98,7 @@ data class TemplateExerciseEntity(
      * If null, use default rest time from settings.
      * Example: 90 = 90 seconds = 1:30 rest
      */
-    val restSeconds: Int? = null
+    val restSeconds: Int = 90
 )
 
 /**
