@@ -1,9 +1,14 @@
 package com.example.neokratos
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -39,18 +44,35 @@ import com.example.neokratos.ui.theme.NeoKratosTheme
 import kotlinx.coroutines.launch
 
 /**
- * Main Activity - UPDATED for 4-tab navigation
+ * Main Activity - UPDATED for notification permissions
  *
- * Bottom tabs:
- * - Workout: Active workout screen
- * - Templates: Workout templates
- * - Exercises: Exercise library
- * - Progress: History + Analytics + Body (combined)
+ * NEW: Requests POST_NOTIFICATIONS permission on Android 13+
+ * Required for rest timer notifications to work
  */
 class MainActivity : ComponentActivity() {
 
+    /**
+     * Permission launcher for POST_NOTIFICATIONS.
+     * Registered before onCreate.
+     */
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Permission granted - notifications will work
+            // No action needed, service will start when timer begins
+        } else {
+            // Permission denied - show explanation to user
+            // Timer will still work but without notifications
+            showNotificationPermissionDeniedExplanation()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Request notification permission on Android 13+
+        requestNotificationPermission()
 
         val database = GymDatabase.getInstance(this)
 
@@ -91,8 +113,10 @@ class MainActivity : ComponentActivity() {
                 var selectedWorkoutId by remember { mutableStateOf<Long?>(null) }
                 var selectedTemplateId by remember { mutableStateOf<Long?>(null) }
 
+                // UPDATED: Pass application to factory
                 val activeWorkoutViewModel: ActiveWorkoutViewModel = viewModel(
                     factory = ActiveWorkoutViewModelFactory(
+                        application = application,
                         workoutSessionRepository = workoutSessionRepository,
                         exerciseRepository = exerciseRepository
                     )
@@ -156,7 +180,6 @@ class MainActivity : ComponentActivity() {
                             exercisesScreen = {
                                 ExerciseLibraryScreen(viewModel = exerciseLibraryViewModel)
                             },
-                            // NEW: Combined Progress screen
                             progressScreen = {
                                 ProgressScreen(
                                     historyViewModel = historyViewModel,
@@ -204,5 +227,57 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Request notification permission on Android 13+ (API 33+).
+     *
+     * On older versions, permission is granted automatically.
+     */
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            when {
+                // Permission already granted
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    // Nothing to do, notifications work
+                }
+
+                // Should show rationale (user denied before)
+                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
+                    // Show explanation dialog before requesting again
+                    showNotificationPermissionRationale()
+                }
+
+                // First time asking
+                else -> {
+                    // Request permission directly
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        }
+        // On Android 12 and below, permission is granted automatically
+    }
+
+    /**
+     * Show rationale explaining why notification permission is needed.
+     * Called when user denied permission before.
+     */
+    private fun showNotificationPermissionRationale() {
+        // TODO: Show a dialog explaining the benefit of notifications
+        // For now, just request again
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    /**
+     * Show explanation when user denies notification permission.
+     * Timer will still work but without persistent notifications.
+     */
+    private fun showNotificationPermissionDeniedExplanation() {
+        // TODO: Show a snackbar or dialog explaining:
+        // "Rest timer notifications disabled. You can enable them in Settings."
+        // The timer will still work in-app, just without the persistent notification
     }
 }

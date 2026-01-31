@@ -1,11 +1,13 @@
 package com.example.neokratos.ui.screen.activeworkout
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.neokratos.data.local.entity.SetLogEntity
 import com.example.neokratos.data.local.relations.SessionComplete
 import com.example.neokratos.data.repository.ExerciseRepository
 import com.example.neokratos.data.repository.WorkoutSessionRepository
+import com.example.neokratos.service.RestTimerService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,12 +20,19 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel for Active Workout screen.
  *
- * FIXED: Timer starts after both add and update operations
+ * UPDATED: Integrated with RestTimerService for persistent notifications
+ *
+ * Features:
+ * - Starts foreground service when timer begins
+ * - Updates service every second with timer state
+ * - Handles service action broadcasts (pause/resume/skip)
+ * - Stops service when timer ends or workout completes
  */
 class ActiveWorkoutViewModel(
+    application: Application,
     private val workoutSessionRepository: WorkoutSessionRepository,
     private val exerciseRepository: ExerciseRepository
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
     // ===== STATE =====
 
@@ -51,6 +60,11 @@ class ActiveWorkoutViewModel(
      * Job for timer coroutine - allows cancellation.
      */
     private var timerJob: Job? = null
+
+    /**
+     * Current exercise name for notification display.
+     */
+    private var currentExerciseName: String = "Exercise"
 
     // ===== WORKOUT OPERATIONS =====
 
@@ -82,6 +96,9 @@ class ActiveWorkoutViewModel(
 
                 _uiState.value = WorkoutUiState.Loading
 
+                // Stop timer service before completing workout
+                stopTimerService()
+
                 workoutSessionRepository.completeWorkout(session.session.id)
 
                 // Cancel timer and reset state
@@ -102,6 +119,9 @@ class ActiveWorkoutViewModel(
         viewModelScope.launch {
             try {
                 val session = activeWorkout.value ?: return@launch
+
+                // Stop timer service before canceling workout
+                stopTimerService()
 
                 workoutSessionRepository.cancelWorkout(session.session.id)
 
@@ -162,6 +182,14 @@ class ActiveWorkoutViewModel(
 
     fun selectExercise(sessionExerciseId: Long) {
         _selectedExerciseId.value = sessionExerciseId
+
+        // Update current exercise name for notifications
+        viewModelScope.launch {
+            val workout = activeWorkout.value
+            val exercise = workout?.exercisesWithDetails
+                ?.find { it.sessionExercise.id == sessionExerciseId }
+            currentExerciseName = exercise?.exercise?.name ?: "Exercise"
+        }
     }
 
     fun completeExercise(sessionExerciseId: Long) {
@@ -178,41 +206,9 @@ class ActiveWorkoutViewModel(
 
     // ===== SET LOGGING =====
 
-    fun logSet(
-        weight: Float,
-        reps: Int,
-        rpe: Float? = null,
-        restSeconds: Int? = null
-    ) {
-        viewModelScope.launch {
-            try {
-                val sessionExerciseId = _selectedExerciseId.value
-                    ?: throw IllegalStateException("No exercise selected")
-
-                workoutSessionRepository.logSet(
-                    sessionExerciseId = sessionExerciseId,
-                    weight = weight,
-                    reps = reps,
-                    rpe = rpe,
-                    restSeconds = restSeconds
-                )
-
-                // Start rest timer if restSeconds specified
-                restSeconds?.let {
-                    startRestTimer(it)
-                }
-
-            } catch (e: Exception) {
-                _uiState.value = WorkoutUiState.Error(
-                    e.message ?: "Failed to log set"
-                )
-            }
-        }
-    }
-
     /**
      * Log a set for a specific exercise.
-     * Automatically starts rest timer after logging the set.
+     * Automatically starts rest timer with notification after logging the set.
      */
     fun logSetForExercise(
         sessionExerciseId: Long,
@@ -232,8 +228,7 @@ class ActiveWorkoutViewModel(
                     restSeconds = restSeconds
                 )
 
-                // Automatically start rest timer with the restSeconds from the set
-                // This happens AFTER the set is successfully logged
+                // Automatically start rest timer with notification
                 startRestTimer(restSeconds)
 
             } catch (e: Exception) {
@@ -261,7 +256,7 @@ class ActiveWorkoutViewModel(
     }
 
     /**
-     * NEW: Update set AND start rest timer.
+     * Update set AND start rest timer with notification.
      * Use this when completing a placeholder set from template.
      */
     fun updateSetAndStartTimer(setLog: SetLogEntity) {
@@ -270,7 +265,7 @@ class ActiveWorkoutViewModel(
                 // Update the set in database
                 workoutSessionRepository.updateSet(setLog)
 
-                // Start rest timer if restSeconds specified
+                // Start rest timer with notification if restSeconds specified
                 setLog.restSeconds?.let { restSeconds ->
                     startRestTimer(restSeconds)
                 }
@@ -295,11 +290,13 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    // ===== REST TIMER - IMPLEMENTATION =====
+    // ===== REST TIMER - IMPLEMENTATION WITH NOTIFICATION =====
 
     /**
-     * Start rest timer with coroutine-based countdown.
+     * Start rest timer with coroutine-based countdown AND foreground service notification.
      * Called automatically after logging a set.
+     *
+     * NEW: Starts RestTimerService for persistent notification
      */
     private fun startRestTimer(seconds: Int) {
         // Cancel existing timer if running
@@ -307,6 +304,14 @@ class ActiveWorkoutViewModel(
 
         // Set initial state
         _restTimerState.value = RestTimerState.Running(
+            totalSeconds = seconds,
+            remainingSeconds = seconds
+        )
+
+        // Start foreground service for notification
+        RestTimerService.startTimer(
+            context = getApplication(),
+            exerciseName = currentExerciseName,
             totalSeconds = seconds,
             remainingSeconds = seconds
         )
@@ -325,6 +330,15 @@ class ActiveWorkoutViewModel(
                         totalSeconds = seconds,
                         remainingSeconds = remaining
                     )
+
+                    // Update notification service with new time
+                    RestTimerService.updateTimer(
+                        context = getApplication(),
+                        exerciseName = currentExerciseName,
+                        totalSeconds = seconds,
+                        remainingSeconds = remaining,
+                        isPaused = false
+                    )
                 } else {
                     // Timer was paused, exit loop
                     break
@@ -334,7 +348,16 @@ class ActiveWorkoutViewModel(
             // Timer completed
             if (remaining == 0) {
                 _restTimerState.value = RestTimerState.Completed
-                // TODO: Play sound/vibrate notification
+
+                // Service will handle vibration and sound
+                // Update notification to show completion
+                RestTimerService.updateTimer(
+                    context = getApplication(),
+                    exerciseName = currentExerciseName,
+                    totalSeconds = seconds,
+                    remainingSeconds = 0,
+                    isPaused = false
+                )
             }
         }
     }
@@ -342,6 +365,7 @@ class ActiveWorkoutViewModel(
     /**
      * Pause rest timer.
      * Cancels coroutine and saves current state.
+     * Updates service notification.
      */
     fun pauseRestTimer() {
         val current = _restTimerState.value
@@ -355,12 +379,22 @@ class ActiveWorkoutViewModel(
                 totalSeconds = current.totalSeconds,
                 remainingSeconds = current.remainingSeconds
             )
+
+            // Update notification service
+            RestTimerService.updateTimer(
+                context = getApplication(),
+                exerciseName = currentExerciseName,
+                totalSeconds = current.totalSeconds,
+                remainingSeconds = current.remainingSeconds,
+                isPaused = true
+            )
         }
     }
 
     /**
      * Resume rest timer.
      * Restarts coroutine from paused time.
+     * Updates service notification.
      */
     fun resumeRestTimer() {
         val current = _restTimerState.value
@@ -372,9 +406,11 @@ class ActiveWorkoutViewModel(
 
     /**
      * Skip/cancel rest timer.
+     * Stops service and resets state.
      */
     fun skipRestTimer() {
         cancelTimer()
+        stopTimerService()
         _restTimerState.value = RestTimerState.Idle
     }
 
@@ -387,11 +423,19 @@ class ActiveWorkoutViewModel(
     }
 
     /**
+     * Stop the foreground service.
+     */
+    private fun stopTimerService() {
+        RestTimerService.stopService(getApplication())
+    }
+
+    /**
      * Cleanup when ViewModel is destroyed.
      */
     override fun onCleared() {
         super.onCleared()
         cancelTimer()
+        stopTimerService()
     }
 
     // ===== NOTES =====

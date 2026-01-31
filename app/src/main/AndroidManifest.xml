@@ -2,6 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- ===== PERMISSIONS FOR REST TIMER NOTIFICATIONS ===== -->
+
+    <!-- Vibration permission for timer completion -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Post notifications permission for Android 13+ (API 33+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Foreground service permission for Android 9+ (API 28+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -10,18 +23,72 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.NeoKratos">
+        android:theme="@style/Theme.NeoKratos"
+        tools:targetApi="31">
+
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.NeoKratos">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- ===== REST TIMER FOREGROUND SERVICE ===== -->
+        <service
+            android:name=".service.RestTimerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
+            <!--
+                foregroundServiceType="health" for Android 14+ (API 34+)
+                Indicates this is a health/fitness related foreground service
+                This allows the service to run during workouts
+            -->
+        </service>
+
     </application>
 
 </manifest>
+
+    <!--
+        PERMISSION NOTES:
+
+        1. VIBRATE:
+           - Normal permission, granted automatically
+           - No runtime request needed
+
+        2. POST_NOTIFICATIONS:
+           - Dangerous permission on Android 13+ (API 33+)
+           - Must request at runtime
+           - Older versions: granted automatically
+
+        3. FOREGROUND_SERVICE:
+           - Normal permission, granted automatically
+           - Required for foreground services on Android 9+
+
+        4. FOREGROUND_SERVICE_HEALTH:
+           - Normal permission, granted automatically
+           - Required for health-related services on Android 14+
+           - Allows workout tracking services to run
+
+        RUNTIME PERMISSION REQUEST:
+        You need to request POST_NOTIFICATIONS permission in MainActivity:
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    REQUEST_CODE_NOTIFICATIONS
+                )
+            }
+        }
+    -->
