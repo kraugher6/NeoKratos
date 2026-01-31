@@ -1,8 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("kotlin-kapt")
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -31,14 +30,17 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
     buildFeatures {
         compose = true
+        resValues = true
     }
 }
 
@@ -60,7 +62,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
-    kapt(libs.room.compiler)
+    ksp(libs.room.compiler)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.material.icons.extended)
@@ -69,35 +71,35 @@ dependencies {
     // ========================================
 
     // JUnit 4 (framework base)
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 
     // MockK (per creare mock di classi/interfacce)
-    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation(libs.mockk)
 
     // Coroutines Testing (per testare suspend fun e Flow)
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation(libs.jetbrains.kotlinx.coroutines.test)
 
     // Turbine (per testare Flow in modo semplice)
-    testImplementation("app.cash.turbine:turbine:1.0.0")
+    testImplementation(libs.turbine)
 
     // Robolectric (simula Android senza emulatore)
-    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation(libs.robolectric)
 
     // Room Testing
-    testImplementation("androidx.room:room-testing:2.6.1")
+    testImplementation(libs.room.testing)
 
     // AndroidX Test - Core
-    testImplementation("androidx.test:core:1.5.0")
-    testImplementation("androidx.test:core-ktx:1.5.0")
+    testImplementation(libs.androidx.core.v170)
+    testImplementation(libs.test.core.ktx)
 
     // AndroidX Test - Runner
-    testImplementation("androidx.test:runner:1.5.2")
+    testImplementation(libs.runner)
 
     // AndroidX Test - Rules
-    testImplementation("androidx.test:rules:1.5.0")
+    testImplementation(libs.rules)
 
     // AndroidX Arch Core Testing (per LiveData/ViewModel)
-    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation(libs.androidx.core.testing)
 
     // ========================================
     // INSTRUMENTED TESTS (androidTest/java/) - Girano su device/emulatore
@@ -109,20 +111,20 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 
     // Coroutines Testing per androidTest
-    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    androidTestImplementation(libs.jetbrains.kotlinx.coroutines.test)
 
     // Room Testing per androidTest
-    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation(libs.room.testing)
 
     // AndroidX Test - Core per androidTest
-    androidTestImplementation("androidx.test:core:1.5.0")
-    androidTestImplementation("androidx.test:core-ktx:1.5.0")
+    androidTestImplementation(libs.core)
+    androidTestImplementation(libs.test.core.ktx)
 
     // AndroidX Test - Runner per androidTest
-    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation(libs.runner)
 
     // AndroidX Test - Rules per androidTest
-    androidTestImplementation("androidx.test:rules:1.5.0")
+    androidTestImplementation(libs.rules)
 
     // ========================================
     // DEBUG (per UI testing)
