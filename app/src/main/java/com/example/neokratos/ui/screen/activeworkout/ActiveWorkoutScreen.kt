@@ -1,17 +1,17 @@
 package com.example.neokratos.ui.screen.activeworkout
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,29 +19,26 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.neokratos.data.local.entity.SetLogEntity
 import com.example.neokratos.data.local.entity.getDisplayName
 import com.example.neokratos.data.local.entity.getDurationDisplay
 import com.example.neokratos.data.local.relations.SessionComplete
 import com.example.neokratos.data.local.relations.SessionExerciseWithDetails
-import com.example.neokratos.data.local.relations.getTotalExercises
 import com.example.neokratos.data.local.relations.getTotalSets
 import com.example.neokratos.data.local.relations.getTotalVolume
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
- * Active Workout Screen - SWIPEABLE CARDS LAYOUT
+ * Active Workout Screen - REFACTORED for better UX
  *
- * Features:
- * - Horizontal pager with swipe between exercises
- * - Interactive progress bar at top
- * - Smooth animations
- * - Rest timer overlay
+ * Changes:
+ * - Rest timer INTEGRATED into exercise card (no overlay)
+ * - "Complete Workout" moved to TopAppBar
+ * - "Add Exercise" FAB only visible on last page
+ * - Cleaner, less cluttered layout
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -94,14 +91,26 @@ fun ActiveWorkoutScreen(
                         title = {
                             Text(activeWorkout?.session?.getDisplayName() ?: "")
                         },
-                        actions = {
+                        navigationIcon = {
                             IconButton(onClick = { showCancelDialog = true }) {
                                 Icon(Icons.Default.Close, contentDescription = "Cancel workout")
+                            }
+                        },
+                        actions = {
+                            // MOVED: Complete button to TopAppBar
+                            IconButton(
+                                onClick = { showCompleteDialog = true }
+                            ) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = "Complete workout",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
                     )
 
-                    // PROGRESS BAR - Interactive
+                    // Progress bar
                     if (activeWorkout!!.exercisesWithDetails.isNotEmpty()) {
                         ExerciseProgressBar(
                             exercises = activeWorkout!!.exercisesWithDetails,
@@ -117,124 +126,110 @@ fun ActiveWorkoutScreen(
             }
         },
         floatingActionButton = {
-            if (activeWorkout != null) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Complete button
-                    FloatingActionButton(
-                        onClick = { showCompleteDialog = true },
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Icon(Icons.Default.Check, contentDescription = "Complete workout")
-                    }
+            // NEW: Only show FAB when on last page OR workout is empty
+            val isLastPage = activeWorkout?.let {
+                it.exercisesWithDetails.isEmpty() ||
+                        pagerState.currentPage == it.exercisesWithDetails.size - 1
+            } ?: true
 
-                    // Add exercise button
-                    ExtendedFloatingActionButton(
-                        onClick = { showExercisePicker = true },
-                        icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                        text = { Text("Add Exercise") }
-                    )
-                }
+            AnimatedVisibility(
+                visible = activeWorkout != null && isLastPage,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = { showExercisePicker = true },
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text("Add Exercise") }
+                )
             }
         }
     ) { padding ->
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            when {
-                activeWorkout == null -> {
-                    EmptyWorkoutState(
-                        onStartWorkout = { viewModel.startWorkout() },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                    )
-                }
-
-                activeWorkout!!.exercisesWithDetails.isEmpty() -> {
-                    EmptyExerciseListState(
-                        onAddExercise = { showExercisePicker = true },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                    )
-                }
-
-                else -> {
-                    // HORIZONTAL PAGER - Swipeable cards
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                    ) {
-                        // Workout summary at top
-                        WorkoutSummaryCompact(
-                            session = activeWorkout!!,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-
-                        // Swipeable exercise cards
-                        HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .weight(1f),
-                            pageSpacing = 16.dp,
-                            contentPadding = PaddingValues(horizontal = 16.dp)
-                        ) { page ->
-                            val exerciseWithDetails = activeWorkout!!.exercisesWithDetails[page]
-
-                            SwipeableExerciseCard(
-                                exerciseWithDetails = exerciseWithDetails,
-                                exerciseNumber = page + 1,
-                                totalExercises = activeWorkout!!.exercisesWithDetails.size,
-                                onAddSet = { weight, reps, rpe, restSeconds ->
-                                    viewModel.logSetForExercise(
-                                        sessionExerciseId = exerciseWithDetails.sessionExercise.id,
-                                        weight = weight,
-                                        reps = reps,
-                                        rpe = rpe,
-                                        restSeconds = restSeconds
-                                    )
-                                },
-                                onUpdateSet = { updatedSet ->
-                                    viewModel.updateSetAndStartTimer(updatedSet)
-                                },
-                                onRemoveExercise = {
-                                    viewModel.removeExercise(exerciseWithDetails.sessionExercise.id)
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Rest Timer Overlay
-            if (restTimerState is RestTimerState.Running || restTimerState is RestTimerState.Paused) {
-                RestTimerOverlay(
-                    restTimerState = restTimerState,
-                    onPause = { viewModel.pauseRestTimer() },
-                    onResume = { viewModel.resumeRestTimer() },
-                    onSkip = { viewModel.skipRestTimer() },
+        when {
+            activeWorkout == null -> {
+                EmptyWorkoutState(
+                    onStartWorkout = { viewModel.startWorkout() },
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 80.dp)
+                        .fillMaxSize()
+                        .padding(padding)
                 )
             }
 
-            if (uiState is WorkoutUiState.Loading) {
-                Box(
+            activeWorkout!!.exercisesWithDetails.isEmpty() -> {
+                EmptyExerciseListState(
+                    onAddExercise = { showExercisePicker = true },
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
+                        .padding(padding)
+                )
+            }
+
+            else -> {
+                // HORIZONTAL PAGER - Swipeable cards
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
                 ) {
-                    CircularProgressIndicator()
+                    // Workout summary at top
+                    WorkoutSummaryCompact(
+                        session = activeWorkout!!,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+
+                    // Swipeable exercise cards
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f),
+                        pageSpacing = 16.dp,
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) { page ->
+                        val exerciseWithDetails = activeWorkout!!.exercisesWithDetails[page]
+
+                        // NEW: Pass rest timer state to card
+                        SwipeableExerciseCardWithTimer(
+                            exerciseWithDetails = exerciseWithDetails,
+                            exerciseNumber = page + 1,
+                            totalExercises = activeWorkout!!.exercisesWithDetails.size,
+                            restTimerState = restTimerState,
+                            onAddSet = { weight, reps, rpe, restSeconds ->
+                                viewModel.logSetForExercise(
+                                    sessionExerciseId = exerciseWithDetails.sessionExercise.id,
+                                    weight = weight,
+                                    reps = reps,
+                                    rpe = rpe,
+                                    restSeconds = restSeconds
+                                )
+                            },
+                            onUpdateSet = { updatedSet ->
+                                viewModel.updateSetAndStartTimer(updatedSet)
+                            },
+                            onRemoveExercise = {
+                                viewModel.removeExercise(exerciseWithDetails.sessionExercise.id)
+                            },
+                            onPauseTimer = { viewModel.pauseRestTimer() },
+                            onResumeTimer = { viewModel.resumeRestTimer() },
+                            onSkipTimer = { viewModel.skipRestTimer() },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
+            }
+        }
+
+        if (uiState is WorkoutUiState.Loading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
             }
         }
 
@@ -331,7 +326,6 @@ private fun ExerciseProgressBar(
 
 /**
  * Single dot in progress bar.
- * Shows exercise name on hover/tap.
  */
 @Composable
 private fun ExerciseProgressDot(
@@ -576,54 +570,141 @@ private fun ExercisePickerDialog(
 }
 
 /**
- * Rest timer overlay.
+ * NEW: Swipeable Exercise Card WITH integrated timer
+ *
+ * Timer is shown at the bottom of the card when active.
+ * This eliminates the overlay and uses card's own space.
  */
 @Composable
-private fun RestTimerOverlay(
+private fun SwipeableExerciseCardWithTimer(
+    exerciseWithDetails: SessionExerciseWithDetails,
+    exerciseNumber: Int,
+    totalExercises: Int,
+    restTimerState: RestTimerState,
+    onAddSet: (weight: Float, reps: Int, rpe: Float?, restSeconds: Int) -> Unit,
+    onUpdateSet: (com.example.neokratos.data.local.entity.SetLogEntity) -> Unit,
+    onRemoveExercise: () -> Unit,
+    onPauseTimer: () -> Unit,
+    onResumeTimer: () -> Unit,
+    onSkipTimer: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Use the existing SwipeableExerciseCard but add timer section
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Main exercise card (without integrated timer controls yet)
+        SwipeableExerciseCard(
+            exerciseWithDetails = exerciseWithDetails,
+            exerciseNumber = exerciseNumber,
+            totalExercises = totalExercises,
+            onAddSet = onAddSet,
+            onUpdateSet = onUpdateSet,
+            onRemoveExercise = onRemoveExercise,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        )
+
+        // INTEGRATED TIMER at bottom (only when active)
+        AnimatedVisibility(
+            visible = restTimerState !is RestTimerState.Idle,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            IntegratedRestTimer(
+                restTimerState = restTimerState,
+                onPause = onPauseTimer,
+                onResume = onResumeTimer,
+                onSkip = onSkipTimer,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/**
+ * Integrated rest timer component.
+ * Shows at bottom of exercise card instead of overlay.
+ */
+@Composable
+private fun IntegratedRestTimer(
     restTimerState: RestTimerState,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSkip: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val (totalSeconds, remainingSeconds, isRunning) = when (restTimerState) {
-        is RestTimerState.Running -> Triple(
-            restTimerState.totalSeconds,
-            restTimerState.remainingSeconds,
-            true
-        )
-        is RestTimerState.Paused -> Triple(
-            restTimerState.totalSeconds,
-            restTimerState.remainingSeconds,
-            false
-        )
-        else -> return
+    when (restTimerState) {
+        is RestTimerState.Running -> {
+            RestTimerContent(
+                totalSeconds = restTimerState.totalSeconds,
+                remainingSeconds = restTimerState.remainingSeconds,
+                isRunning = true,
+                onPause = onPause,
+                onResume = onResume,
+                onSkip = onSkip,
+                modifier = modifier
+            )
+        }
+        is RestTimerState.Paused -> {
+            RestTimerContent(
+                totalSeconds = restTimerState.totalSeconds,
+                remainingSeconds = restTimerState.remainingSeconds,
+                isRunning = false,
+                onPause = onPause,
+                onResume = onResume,
+                onSkip = onSkip,
+                modifier = modifier
+            )
+        }
+        is RestTimerState.Completed -> {
+            CompletedTimerContent(
+                onSkip = onSkip,
+                modifier = modifier
+            )
+        }
+        RestTimerState.Idle -> { /* Hidden */ }
     }
+}
 
+/**
+ * Timer content (running or paused).
+ */
+@Composable
+private fun RestTimerContent(
+    totalSeconds: Int,
+    remainingSeconds: Int,
+    isRunning: Boolean,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onSkip: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val progress = remainingSeconds.toFloat() / totalSeconds.toFloat()
     val minutes = remainingSeconds / 60
     val seconds = remainingSeconds % 60
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = modifier,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        ),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Rest Timer",
+                text = if (isRunning) "Rest Timer" else "Rest Timer (Paused)",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
+            // Progress ring with time
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.size(80.dp)
@@ -631,7 +712,7 @@ private fun RestTimerOverlay(
                 CircularProgressIndicator(
                     progress = { progress },
                     modifier = Modifier.fillMaxSize(),
-                    strokeWidth = 8.dp,
+                    strokeWidth = 6.dp,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
@@ -642,10 +723,10 @@ private fun RestTimerOverlay(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
+            // Action buttons
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedButton(
                     onClick = if (isRunning) onPause else onResume,
@@ -665,6 +746,51 @@ private fun RestTimerOverlay(
                 ) {
                     Text("Skip")
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Completed timer content.
+ */
+@Composable
+private fun CompletedTimerContent(
+    onSkip: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "✓ Rest Complete!",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Text(
+                text = "Ready for next set",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            Button(
+                onClick = onSkip,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Dismiss")
             }
         }
     }
