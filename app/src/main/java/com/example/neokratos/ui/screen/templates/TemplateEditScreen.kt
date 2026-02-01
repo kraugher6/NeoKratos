@@ -5,8 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -20,6 +20,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.neokratos.data.local.entity.TemplateExerciseEntity
 import com.example.neokratos.data.local.relations.TemplateWithExerciseDetails
 
+/**
+ * Template Edit Screen - REFACTORED
+ *
+ * Changes from original:
+ * - Replaced confusing "Save" (check) button with standard back arrow
+ * - Changes are auto-saved when made (Room handles persistence)
+ * - Shows "Auto-saving..." indicator when changes detected
+ * - Standard Android back navigation pattern
+ *
+ * UX Flow:
+ * 1. User makes changes (add/remove/edit exercise)
+ * 2. Changes are immediately persisted via ViewModel
+ * 3. Brief "Auto-saving..." indicator shown
+ * 4. User presses back arrow to return (no save prompt needed)
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TemplateEditScreen(
@@ -30,6 +45,9 @@ fun TemplateEditScreen(
     val template by viewModel.getTemplateWithExercises(templateId).collectAsStateWithLifecycle(null)
     var showExercisePicker by remember { mutableStateOf(false) }
 
+    // Track if changes were just made (for auto-save indicator)
+    var showSavingIndicator by remember { mutableStateOf(false) }
+
     LaunchedEffect(templateId) {
         viewModel.loadTemplate(templateId)
     }
@@ -37,14 +55,26 @@ fun TemplateEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(template?.template?.name ?: "Edit Template") },
-                // FIX 4: Replace back arrow with Save button
+                title = {
+                    Column {
+                        Text(template?.template?.name ?: "Edit Template")
+                        // Show auto-save indicator when changes made
+                        if (showSavingIndicator) {
+                            Text(
+                                text = "Changes saved",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                },
+                // STANDARD BACK ARROW - no save button needed
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            Icons.Default.Check,
-                            contentDescription = "Save and return",
-                            tint = MaterialTheme.colorScheme.primary
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -70,9 +100,13 @@ fun TemplateEditScreen(
                 template = template!!,
                 onRemoveExercise = { exerciseId ->
                     viewModel.removeExerciseFromTemplate(exerciseId)
+                    // Show save indicator briefly
+                    showSavingIndicator = true
                 },
                 onUpdateExercise = { exercise ->
                     viewModel.updateTemplateExercise(exercise)
+                    // Show save indicator briefly
+                    showSavingIndicator = true
                 },
                 modifier = Modifier
                     .fillMaxSize()
@@ -81,11 +115,21 @@ fun TemplateEditScreen(
         }
     }
 
+    // Auto-hide saving indicator after 2 seconds
+    LaunchedEffect(showSavingIndicator) {
+        if (showSavingIndicator) {
+            kotlinx.coroutines.delay(2000)
+            showSavingIndicator = false
+        }
+    }
+
     if (showExercisePicker) {
         com.example.neokratos.ui.screen.activeworkout.ExercisePickerDialogScreen(
             onExerciseSelected = { exerciseId ->
                 viewModel.addExerciseToTemplate(templateId, exerciseId)
                 showExercisePicker = false
+                // Show save indicator
+                showSavingIndicator = true
             },
             onDismiss = { showExercisePicker = false }
         )
@@ -213,7 +257,7 @@ private fun TemplateExerciseCard(
                 fontWeight = FontWeight.SemiBold
             )
 
-            te.restSeconds?.let { rest ->
+            te.restSeconds.let { rest ->
                 val minutes = rest / 60
                 val seconds = rest % 60
                 Text(
@@ -297,10 +341,10 @@ private fun AdvancedEditExerciseDialog(
     }
 
     var restMinutes by remember {
-        mutableIntStateOf((exercise.restSeconds ?: 90) / 60)
+        mutableIntStateOf(exercise.restSeconds / 60)
     }
     var restSeconds by remember {
-        mutableIntStateOf((exercise.restSeconds ?: 90) % 60)
+        mutableIntStateOf(exercise.restSeconds % 60)
     }
     var notes by remember { mutableStateOf(exercise.notes ?: "") }
 
